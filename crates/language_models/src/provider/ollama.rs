@@ -96,9 +96,9 @@ impl State {
             cx,
         );
 
-        // Always try to fetch models - if no API key is needed (local Ollama), it will work
-        // If API key is needed and provided, it will work
-        // If API key is needed and not provided, it will fail gracefully
+        // 始终尝试获取模型 - 如果不需要 API 密钥（本地 Ollama），可以直接工作；
+        // 如果需要且已提供 API 密钥，可以工作；
+        // 如果需要但未提供 API 密钥，则会优雅地失败。
         cx.spawn(async move |this, cx| {
             let result = task.await;
             this.update(cx, |this, cx| this.restart_fetch_models_task(cx))
@@ -112,15 +112,14 @@ impl State {
         let api_url = OllamaLanguageModelProvider::api_url(cx);
         let api_key = self.api_key_state.key(&api_url);
 
-        // As a proxy for the server being "authenticated", we'll check if its up by fetching the models
+        // 通过检查服务器是否可用来代理“已认证”状态，即通过获取模型列表来判断
         cx.spawn(async move |this, cx| {
             let models = get_models(http_client.as_ref(), &api_url, api_key.as_deref()).await?;
 
             let tasks = models
                 .into_iter()
-                // Since there is no metadata from the Ollama API
-                // indicating which models are embedding models,
-                // simply filter out models with "-embed" in their name
+                // Ollama API 没有元数据标识哪些是嵌入模型，
+                // 所以直接过滤掉名称中包含 “-embed” 的模型
                 .filter(|model| !model.name.contains("-embed"))
                 .map(|model| {
                     let http_client = Arc::clone(&http_client);
@@ -143,8 +142,7 @@ impl State {
                     }
                 });
 
-            // Rate-limit capability fetches
-            // since there is an arbitrary number of models available
+            // 因为可用模型数量可能很多，对能力获取进行速率限制
             let mut ollama_models: Vec<_> = futures::stream::iter(tasks)
                 .buffer_unordered(5)
                 .collect::<Vec<Result<_>>>()
@@ -254,14 +252,13 @@ impl LanguageModelProvider for OllamaLanguageModelProvider {
     }
 
     fn default_model(&self, _: &App) -> Option<Arc<dyn LanguageModel>> {
-        // We shouldn't try to select default model, because it might lead to a load call for an unloaded model.
-        // In a constrained environment where user might not have enough resources it'll be a bad UX to select something
-        // to load by default.
+        // 我们不应尝试选择默认模型，因为这可能会导致加载一个尚未加载的模型。
+        // 在资源受限的环境中，默认加载某个模型会导致糟糕的用户体验。
         None
     }
 
     fn default_fast_model(&self, _: &App) -> Option<Arc<dyn LanguageModel>> {
-        // See explanation for default_model.
+        // 参见 default_model 的说明。
         None
     }
 
@@ -269,7 +266,7 @@ impl LanguageModelProvider for OllamaLanguageModelProvider {
         let mut models: HashMap<String, ollama::Model> = HashMap::new();
         let settings = OllamaLanguageModelProvider::settings(cx);
 
-        // Add models from the Ollama API
+        // 从 Ollama API 返回的模型中添加
         for model in self.state.read(cx).fetched_models.iter() {
             let mut model = model.clone();
             if let Some(context_window) = settings.context_window {
@@ -278,7 +275,7 @@ impl LanguageModelProvider for OllamaLanguageModelProvider {
             models.insert(model.name.clone(), model);
         }
 
-        // Override with available models from settings
+        // 用设置中的可用模型覆盖
         merge_settings_into_models(
             &mut models,
             &settings.available_models,
@@ -366,7 +363,7 @@ impl OllamaLanguageModel {
                                     content: tool_result.content.to_str().unwrap_or("").to_string(),
                                 })
                             }
-                            _ => unreachable!("Only tool result should be extracted"),
+                            _ => unreachable!("只应提取工具结果"),
                         }
                     }
                     if !msg.content.is_empty() {
@@ -424,9 +421,9 @@ impl OllamaLanguageModel {
             stream: true,
             options: Some(ChatOptions {
                 num_ctx: Some(self.model.max_tokens),
-                // Only send stop tokens if explicitly provided. When empty/None,
-                // Ollama will use the model's default stop tokens from its Modelfile.
-                // Sending an empty array would override and disable the defaults.
+                // 仅在显式提供停止词时发送。当为空/None 时，
+                // Ollama 将使用模型 Modelfile 中定义的默认停止词。
+                // 发送空数组会覆盖并禁用默认值。
                 stop: if request.stop.is_empty() {
                     None
                 } else {
@@ -532,8 +529,7 @@ fn map_to_language_model_completion_events(
         used_tools: bool,
     }
 
-    // We need to create a ToolUse and Stop event from a single
-    // response from the original stream
+    // 我们需要从原始流的单个响应中创建一个 ToolUse 和一个 Stop 事件
     let stream = stream::unfold(
         State {
             stream,
@@ -624,7 +620,7 @@ struct ConfigurationView {
 
 impl ConfigurationView {
     pub fn new(state: Entity<State>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let api_key_editor = cx.new(|cx| InputField::new(window, cx, "63e02e...").label("API key"));
+        let api_key_editor = cx.new(|cx| InputField::new(window, cx, "63e02e...").label("API 密钥"));
 
         let api_url_editor = cx.new(|cx| {
             let input = InputField::new(window, cx, OLLAMA_API_URL).label("API URL");
@@ -633,7 +629,7 @@ impl ConfigurationView {
         });
 
         let context_window_editor = cx.new(|cx| {
-            let input = InputField::new(window, cx, "8192").label("Context Window");
+            let input = InputField::new(window, cx, "8192").label("上下文窗口");
             if let Some(context_window) = OllamaLanguageModelProvider::settings(cx).context_window {
                 input.set_text(&context_window.to_string(), window, cx);
             }
@@ -676,7 +672,7 @@ impl ConfigurationView {
             return;
         }
 
-        // url changes can cause the editor to be displayed again
+        // URL 更改可能导致编辑器再次显示
         self.api_key_editor
             .update(cx, |input, cx| input.set_text("", window, cx));
 
@@ -790,29 +786,28 @@ impl ConfigurationView {
         v_flex()
             .gap_2()
             .child(Label::new(
-                "Run LLMs locally on your machine with Ollama, or connect to an Ollama server. \
-                Can provide access to Llama, Mistral, Gemma, and hundreds of other models.",
+                "使用 Ollama 在本地机器上运行 LLM，或连接到 Ollama 服务器。\
+                可以访问 Llama、Mistral、Gemma 以及数百种其他模型。",
             ))
-            .child(Label::new("To use local Ollama:"))
+            .child(Label::new("使用本地 Ollama："))
             .child(
                 List::new()
                     .child(
                         ListBulletItem::new("")
-                            .child(Label::new("Download and install Ollama from"))
+                            .child(Label::new("从以下网址下载并安装 Ollama："))
                             .child(ButtonLink::new("ollama.com", "https://ollama.com/download")),
                     )
                     .child(
                         ListBulletItem::new("")
-                            .child(Label::new("Start Ollama and download a model:"))
+                            .child(Label::new("启动 Ollama 并下载模型："))
                             .child(Label::new("ollama run gpt-oss:20b").inline_code(cx)),
                     )
                     .child(ListBulletItem::new(
-                        "Click 'Connect' below to start using Ollama in Zed",
+                        "点击下方的“连接”按钮开始在 Zed 中使用 Ollama",
                     )),
             )
             .child(Label::new(
-                "Alternatively, you can connect to an Ollama server by specifying its \
-                URL and API key (may not be required):",
+                "或者，您可以通过指定 URL 和 API 密钥（可能不需要）连接到 Ollama 服务器：",
             ))
     }
 
@@ -820,9 +815,9 @@ impl ConfigurationView {
         let state = self.state.read(cx);
         let env_var_set = state.api_key_state.is_from_env_var();
         let configured_card_label = if env_var_set {
-            format!("API key set in {API_KEY_ENV_VAR_NAME} environment variable.")
+            format!("API 密钥已通过 {API_KEY_ENV_VAR_NAME} 环境变量设置。")
         } else {
-            "API key configured".to_string()
+            "API 密钥已配置".to_string()
         };
 
         if !state.api_key_state.has_key() {
@@ -831,7 +826,7 @@ impl ConfigurationView {
               .child(self.api_key_editor.clone())
               .child(
                   Label::new(
-                      format!("You can also set the {API_KEY_ENV_VAR_NAME} environment variable and restart Zed.")
+                      format!("您也可以设置 {API_KEY_ENV_VAR_NAME} 环境变量并重启 Zed。")
                   )
                   .size(LabelSize::Small)
                   .color(Color::Muted),
@@ -842,7 +837,7 @@ impl ConfigurationView {
                 .disabled(env_var_set)
                 .on_click(cx.listener(|this, _, window, cx| this.reset_api_key(window, cx)))
                 .when(env_var_set, |this| {
-                    this.tooltip_label(format!("To reset your API key, unset the {API_KEY_ENV_VAR_NAME} environment variable."))
+                    this.tooltip_label(format!("要重置 API 密钥，请取消设置 {API_KEY_ENV_VAR_NAME} 环境变量。"))
                 })
                 .into_any_element()
         }
@@ -865,12 +860,12 @@ impl ConfigurationView {
                         .gap_2()
                         .child(Icon::new(IconName::Check).color(Color::Success))
                         .child(v_flex().gap_1().child(Label::new(format!(
-                            "Context Window: {}",
+                            "上下文窗口: {}",
                             settings.context_window.unwrap()
                         )))),
                 )
                 .child(
-                    Button::new("reset-context-window", "Reset")
+                    Button::new("reset-context-window", "重置")
                         .label_size(LabelSize::Small)
                         .start_icon(Icon::new(IconName::Undo).size(IconSize::Small))
                         .layer(ElevationIndex::ModalSurface)
@@ -889,7 +884,7 @@ impl ConfigurationView {
                 )
                 .child(self.context_window_editor.clone())
                 .child(
-                    Label::new("Default: Model specific")
+                    Label::new("默认：由模型决定")
                         .size(LabelSize::Small)
                         .color(Color::Muted),
                 )
@@ -915,7 +910,7 @@ impl ConfigurationView {
                         .child(v_flex().gap_1().child(Label::new(api_url))),
                 )
                 .child(
-                    Button::new("reset-api-url", "Reset API URL")
+                    Button::new("reset-api-url", "重置 API URL")
                         .label_size(LabelSize::Small)
                         .start_icon(Icon::new(IconName::Undo).size(IconSize::Small))
                         .layer(ElevationIndex::ModalSurface)
@@ -969,7 +964,7 @@ impl Render for ConfigurationView {
                                     )
                                 } else {
                                     this.child(
-                                        Button::new("download_ollama_button", "Download Ollama")
+                                        Button::new("download_ollama_button", "下载 Ollama")
                                             .style(ButtonStyle::Subtle)
                                             .end_icon(
                                                 Icon::new(IconName::ArrowUpRight)
@@ -984,7 +979,7 @@ impl Render for ConfigurationView {
                                 }
                             })
                             .child(
-                                Button::new("view-models", "View All Models")
+                                Button::new("view-models", "查看所有模型")
                                     .style(ButtonStyle::Subtle)
                                     .end_icon(
                                         Icon::new(IconName::ArrowUpRight)
@@ -1004,12 +999,12 @@ impl Render for ConfigurationView {
                                         h_flex()
                                             .gap_2()
                                             .child(Icon::new(IconName::Check).color(Color::Success))
-                                            .child(Label::new("Connected"))
+                                            .child(Label::new("已连接"))
                                             .into_any_element(),
                                     )
                                     .child(
                                         IconButton::new("refresh-models", IconName::RotateCcw)
-                                            .tooltip(Tooltip::text("Refresh Models"))
+                                            .tooltip(Tooltip::text("刷新模型"))
                                             .on_click(cx.listener(|this, _, window, cx| {
                                                 this.state.update(cx, |state, _| {
                                                     state.fetched_models.clear();
@@ -1020,7 +1015,7 @@ impl Render for ConfigurationView {
                             )
                         } else {
                             this.child(
-                                Button::new("retry_ollama_models", "Connect")
+                                Button::new("retry_ollama_models", "连接")
                                     .start_icon(
                                         Icon::new(IconName::PlayOutlined).size(IconSize::XSmall),
                                     )
@@ -1082,9 +1077,9 @@ mod tests {
 
     #[test]
     fn test_merge_settings_preserves_display_names_for_similar_models() {
-        // Regression test for https://github.com/zed-industries/zed/issues/43646
-        // When multiple models share the same base name (e.g., qwen2.5-coder:1.5b and qwen2.5-coder:3b),
-        // each model should get its own display_name from settings, not a random one.
+        // 回归测试：https://github.com/zed-industries/zed/issues/43646
+        // 当多个模型共享相同的基本名称（例如 qwen2.5-coder:1.5b 和 qwen2.5-coder:3b）时，
+        // 每个模型都应从设置中获取各自的 display_name，而不是随机获取一个。
 
         let mut models: HashMap<String, ollama::Model> = HashMap::new();
         models.insert(
@@ -1137,20 +1132,20 @@ mod tests {
 
         let model_1_5b = models
             .get("qwen2.5-coder:1.5b")
-            .expect("1.5b model missing");
-        let model_3b = models.get("qwen2.5-coder:3b").expect("3b model missing");
+            .expect("1.5b 模型缺失");
+        let model_3b = models.get("qwen2.5-coder:3b").expect("3b 模型缺失");
 
         assert_eq!(
             model_1_5b.display_name,
             Some("QWEN2.5 Coder 1.5B".to_string()),
-            "1.5b model should have its own display_name"
+            "1.5b 模型应具有自己的 display_name"
         );
         assert_eq!(model_1_5b.max_tokens, 5000);
 
         assert_eq!(
             model_3b.display_name,
             Some("QWEN2.5 Coder 3B".to_string()),
-            "3b model should have its own display_name"
+            "3b 模型应具有自己的 display_name"
         );
         assert_eq!(model_3b.max_tokens, 6000);
     }

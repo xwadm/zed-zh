@@ -149,7 +149,7 @@ impl QuickActionBar {
                     )
                     .custom_entry(
                         move |_window, _cx| {
-                            Label::new("Interrupt")
+                            Label::new("中断")
                                 .size(LabelSize::Small)
                                 .color(Color::Error)
                                 .into_any_element()
@@ -163,7 +163,7 @@ impl QuickActionBar {
                     )
                     .custom_entry(
                         move |_window, _cx| {
-                            Label::new("Clear Outputs")
+                            Label::new("清除输出")
                                 .size(LabelSize::Small)
                                 .color(Color::Muted)
                                 .into_any_element()
@@ -178,7 +178,7 @@ impl QuickActionBar {
                     .separator()
                     .custom_entry(
                         move |_window, _cx| {
-                            Label::new("Shut Down Kernel")
+                            Label::new("关闭内核")
                                 .size(LabelSize::Small)
                                 .color(Color::Error)
                                 .into_any_element()
@@ -192,7 +192,7 @@ impl QuickActionBar {
                     )
                     .custom_entry(
                         move |_window, _cx| {
-                            Label::new("Restart Kernel")
+                            Label::new("重启内核")
                                 .size(LabelSize::Small)
                                 .color(Color::Error)
                                 .into_any_element()

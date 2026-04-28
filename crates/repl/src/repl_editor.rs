@@ -30,7 +30,7 @@ pub fn assign_kernelspec(
     }
 
     let worktree_id = crate::repl_editor::worktree_id_for_editor(weak_editor.clone(), cx)
-        .context("editor is not in a worktree")?;
+        .context("编辑器不在工作树中")?;
 
     store.update(cx, |store, cx| {
         store.set_active_kernelspec(worktree_id, kernel_specification.clone(), cx);
@@ -99,7 +99,7 @@ pub fn install_ipykernel_and_assign(
             workspace.show_toast(
                 workspace::Toast::new(
                     notification_id.clone(),
-                    format!("Installing ipykernel in {}...", env_name),
+                    format!("正在 {} 中安装 ipykernel...", env_name),
                 ),
                 cx,
             );
@@ -110,33 +110,33 @@ pub fn install_ipykernel_and_assign(
     let window_handle = window.window_handle();
 
     let install_task = cx.background_spawn(async move {
-        let output = if is_uv {
-            util::command::new_command("uv")
-                .args(&[
-                    "pip",
-                    "install",
-                    "ipykernel",
-                    "--python",
-                    &python_path.to_string_lossy(),
-                ])
-                .output()
-                .await
-                .context("failed to run uv pip install ipykernel")?
-        } else {
-            util::command::new_command(python_path.to_string_lossy().as_ref())
-                .args(&["-m", "pip", "install", "ipykernel"])
-                .output()
-                .await
-                .context("failed to run pip install ipykernel")?
-        };
+    let output = if is_uv {
+        util::command::new_command("uv")
+            .args(&[
+                "pip",
+                "install",
+                "ipykernel",
+                "--python",
+                &python_path.to_string_lossy(),
+            ])
+            .output()
+            .await
+            .context("执行uv pip install ipykernel失败")?
+    } else {
+        util::command::new_command(python_path.to_string_lossy().as_ref())
+            .args(&["-m", "pip", "install", "ipykernel"])
+            .output()
+            .await
+            .context("执行pip install ipykernel失败")?
+    };
 
-        if output.status.success() {
-            anyhow::Ok(())
-        } else {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("{}", stderr.lines().last().unwrap_or("unknown error"))
-        }
-    });
+            if output.status.success() {
+                anyhow::Ok(())
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                anyhow::bail!("{}", stderr.lines().last().unwrap_or("未知错误"))
+            }
+        });
 
     cx.spawn(async move |cx| {
         let result = install_task.await;
@@ -150,7 +150,7 @@ pub fn install_ipykernel_and_assign(
                             workspace.show_toast(
                                 workspace::Toast::new(
                                     notification_id.clone(),
-                                    format!("ipykernel installed in {}", env_name),
+                                    format!("ipykernel 已在 {} 中安装", env_name),
                                 )
                                 .autohide(),
                                 cx,
@@ -184,7 +184,7 @@ pub fn install_ipykernel_and_assign(
                                 workspace::Toast::new(
                                     notification_id.clone(),
                                     format!(
-                                        "Failed to install ipykernel in {}: {}",
+                                        "在 {} 中安装 ipykernel 失败：{}",
                                         env_name, error
                                     ),
                                 ),
@@ -201,6 +201,7 @@ pub fn install_ipykernel_and_assign(
     Ok(())
 }
 
+/// 执行代码
 pub fn run(
     editor: WeakEntity<Editor>,
     move_down: bool,
@@ -211,9 +212,11 @@ pub fn run(
     if !store.read(cx).is_enabled() {
         return Ok(());
     }
+    // 确保内核规范已加载
     store.update(cx, |store, cx| store.ensure_kernelspecs(cx));
 
-    let editor = editor.upgrade().context("editor was dropped")?;
+    // 升级弱引用，获取编辑器实体
+    let editor = editor.upgrade().context("编辑器已被释放")?;
     let selected_range = editor
         .update(cx, |editor, cx| {
             editor
@@ -222,29 +225,36 @@ pub fn run(
         })
         .range();
     let multibuffer = editor.read(cx).buffer().clone();
+    // 仅处理单缓冲区
     let Some(buffer) = multibuffer.read(cx).as_singleton() else {
         return Ok(());
     };
 
+    // 获取项目路径
     let Some(project_path) = buffer.read(cx).project_path(cx) else {
         return Ok(());
     };
 
+    // 获取可执行的代码范围和下一个单元格位置
     let (runnable_ranges, next_cell_point) =
         runnable_ranges(&buffer.read(cx).snapshot(), selected_range, cx);
 
+    // 遍历所有可执行代码块
     for runnable_range in runnable_ranges {
+        // 获取代码块对应的语言
         let Some(language) = multibuffer.read(cx).language_at(runnable_range.start, cx) else {
             continue;
         };
 
+        // 获取对应语言的活动内核规范
         let kernel_specification = store
             .read(cx)
             .active_kernelspec(project_path.worktree_id, Some(language.clone()), cx)
-            .with_context(|| format!("No kernel found for language: {}", language.name()))?;
+            .with_context(|| format!("未找到对应语言的内核：{}", language.name()))?;
 
         let fs = store.read(cx).fs().clone();
 
+        // 获取或创建会话
         let session = if let Some(session) = store.read(cx).get_session(editor.entity_id()).cloned()
         {
             session
@@ -256,6 +266,7 @@ pub fn run(
             editor.update(cx, |_editor, cx| {
                 cx.notify();
 
+                // 订阅会话关闭事件
                 cx.subscribe(&session, {
                     let store = store.clone();
                     move |_this, _session, event, cx| match event {
@@ -269,6 +280,7 @@ pub fn run(
                 .detach();
             });
 
+            // 将会话存入存储
             store.update(cx, |store, _cx| {
                 store.insert_session(editor.entity_id(), session.clone());
             });
@@ -281,14 +293,18 @@ pub fn run(
         let next_cursor;
         {
             let snapshot = multibuffer.read(cx).read(cx);
+            // 获取选中的代码文本
             selected_text = snapshot
                 .text_for_range(runnable_range.clone())
                 .collect::<String>();
+            // 创建锚点范围
             anchor_range = snapshot.anchor_before(runnable_range.start)
                 ..snapshot.anchor_after(runnable_range.end);
+            // 设置光标下一个位置
             next_cursor = next_cell_point.map(|point| snapshot.anchor_after(point));
         }
 
+        // 执行代码
         session.update(cx, |session, cx| {
             session.execute(
                 selected_text,

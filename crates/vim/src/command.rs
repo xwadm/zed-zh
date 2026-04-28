@@ -339,9 +339,9 @@ pub fn register(editor: &mut Editor, cx: &mut Context<Vim>) {
     Vim::action(editor, cx, |_, _: &ArgumentRequired, window, cx| {
         let _ = window.prompt(
             gpui::PromptLevel::Critical,
-            "Argument required",
+            "缺少参数",
             None,
-            &["Cancel"],
+            &["取消"],
             cx,
         );
     });
@@ -385,8 +385,8 @@ pub fn register(editor: &mut Editor, cx: &mut Context<Vim>) {
                     else {
                         let _ = window.prompt(
                             gpui::PromptLevel::Warning,
-                            "No file name",
-                            Some("Partial buffer write requires file name."),
+                            "无文件名",
+                            Some("部分缓冲区写入需要文件名。"),
                             &["Cancel"],
                             cx,
                         );
@@ -441,11 +441,11 @@ pub fn register(editor: &mut Editor, cx: &mut Context<Vim>) {
                         let rx = (worktree.entry_for_path(&path).is_some() && Some(SaveIntent::Overwrite) != action.save_intent).then(|| {
                             window.prompt(
                                 gpui::PromptLevel::Warning,
-                                &format!("{path:?} already exists. Do you want to replace it?"),
+                                &format!("{path:?} 已存在。是否要替换它？"),
                                 Some(
-                                    "A file or folder with the same name already exists. Replacing it will overwrite its current contents.",
+                                    "同名文件或文件夹已存在。替换将覆盖其当前内容。",
                                 ),
-                                &["Replace", "Cancel"],
+                                &["替换", "取消"],
                                 cx
                             )
                         });
@@ -537,14 +537,14 @@ pub fn register(editor: &mut Editor, cx: &mut Context<Vim>) {
                     let _ = editor.update_in(cx, |editor, window, cx| {
                         editor
                             .save_as(project, project_path, window, cx)
-                            .detach_and_prompt_err("Failed to :w", window, cx, |_, _, _| None);
+                            .detach_and_prompt_err(":w 失败", window, cx, |_, _, _| None);
                     });
                 })
                 .detach();
             } else {
                 editor
                     .save_as(project, project_path, window, cx)
-                    .detach_and_prompt_err("Failed to :w", window, cx, |_, _, _| None);
+                    .detach_and_prompt_err(":w 失败", window, cx, |_, _, _| None);
             }
         });
     });

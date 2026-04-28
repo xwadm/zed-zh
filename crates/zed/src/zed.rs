@@ -680,7 +680,7 @@ fn initialize_file_watcher(window: &mut Window, cx: &mut Context<Workspace>) {
         );
         let prompt = window.prompt(
             PromptLevel::Critical,
-            "Could not start inotify",
+            "无法启动 inotify",
             Some(&message),
             &["Troubleshoot and Quit"],
             cx,
@@ -711,7 +711,7 @@ fn initialize_file_watcher(window: &mut Window, cx: &mut Context<Workspace>) {
         );
         let prompt = window.prompt(
             PromptLevel::Critical,
-            "Could not start ReadDirectoryChangesW",
+            "无法启动 ReadDirectoryChangesW",
             Some(&message),
             &["Troubleshoot and Quit"],
             cx,
@@ -761,9 +761,9 @@ fn show_software_emulation_warning_if_needed(
         );
         let prompt = window.prompt(
             PromptLevel::Critical,
-            "Unsupported GPU",
+            "不支持的 GPU",
             Some(&message),
-            &["Skip", "Troubleshoot and Quit"],
+            &["跳过", "排查并退出"],
             cx,
         );
         cx.spawn(async move |_, cx| {
@@ -1159,7 +1159,7 @@ fn register_actions(
                         Toast::new(
                             NotificationId::unique::<RegisterZedScheme>(),
                             format!(
-                                "zed:// links will now open in {}.",
+                                "zed:// 链接现在将在 {} 中打开。",
                                 ReleaseChannel::global(cx).display_name()
                             ),
                         ),
@@ -1169,7 +1169,7 @@ fn register_actions(
                 Ok(())
             })
             .detach_and_prompt_err(
-                "Error registering zed:// scheme",
+                "注册 zed:// 协议失败",
                 window,
                 cx,
                 |_, _, _| None,
@@ -1511,14 +1511,14 @@ fn open_about_window(cx: &mut App) {
                             .child(Headline::new(self.message.clone()))
                             .when_some(self.commit.clone(), |this, commit| {
                                 this.child(
-                                    Label::new("Commit")
+                                    Label::new("提交")
                                         .color(Color::Muted)
                                         .size(LabelSize::XSmall),
                                 )
                                 .child(Label::new(commit).size(LabelSize::Small))
                             })
                             .child(
-                                Label::new("Version")
+                                Label::new("版本")
                                     .color(Color::Muted)
                                     .size(LabelSize::XSmall),
                             )
@@ -1536,7 +1536,7 @@ fn open_about_window(cx: &mut App) {
                                         window.remove_window();
                                     }))
                                     .child(
-                                        Button::new("ok", "Ok")
+                                        Button::new("ok", "确定")
                                             .full_width()
                                             .style(ButtonStyle::OutlinedGhost)
                                             .toggle_state(ok_is_focused)
@@ -1556,7 +1556,7 @@ fn open_about_window(cx: &mut App) {
                                         },
                                     ))
                                     .child(
-                                        Button::new("copy", "Copy")
+                                        Button::new("copy", "复制")
                                             .full_width()
                                             .style(ButtonStyle::Tinted(TintColor::Accent))
                                             .toggle_state(copy_is_focused)
@@ -1661,9 +1661,9 @@ fn quit(_: &Quit, cx: &mut App) {
                 .update(cx, |_, window, cx| {
                     window.prompt(
                         PromptLevel::Info,
-                        "Are you sure you want to quit?",
+                        "确定要退出吗？",
                         None,
-                        &["Quit", "Cancel"],
+                        &["退出", "取消"],
                         cx,
                     )
                 })

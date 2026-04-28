@@ -11,23 +11,23 @@ use workspace::{Toast, Workspace};
 actions!(
     cli,
     [
-        /// Installs the Zed CLI tool to the system PATH.
+        /// 将Zed CLI工具安装到系统PATH中
         InstallCliBinary,
     ]
 );
 
+/// 执行CLI安装脚本，创建符号链接
 async fn install_script(cx: &AsyncApp) -> Result<PathBuf> {
     let cli_path = cx.update(|cx| cx.path_for_auxiliary_executable("cli"))?;
     let link_path = Path::new("/usr/local/bin/zed");
     let bin_dir_path = link_path.parent().unwrap();
 
-    // Don't re-create symlink if it points to the same CLI binary.
+    // 如果符号链接已指向相同的CLI二进制文件，则无需重新创建
     if smol::fs::read_link(link_path).await.ok().as_ref() == Some(&cli_path) {
         return Ok(link_path.into());
     }
 
-    // If the symlink is not there or is outdated, first try replacing it
-    // without escalating.
+    // 若符号链接不存在或已过期，先尝试不提升权限替换
     smol::fs::remove_file(link_path).await.log_err();
     if smol::fs::unix::symlink(&cli_path, link_path)
         .await
@@ -37,8 +37,7 @@ async fn install_script(cx: &AsyncApp) -> Result<PathBuf> {
         return Ok(link_path.into());
     }
 
-    // The symlink could not be created, so use osascript with admin privileges
-    // to create it.
+    // 无法创建符号链接，使用osascript并通过管理员权限创建
     let status = smol::process::Command::new("/usr/bin/osascript")
         .args([
             "-e",
@@ -57,27 +56,28 @@ async fn install_script(cx: &AsyncApp) -> Result<PathBuf> {
         .output()
         .await?
         .status;
-    anyhow::ensure!(status.success(), "error running osascript");
+    anyhow::ensure!(status.success(), "运行osascript时出错");
     Ok(link_path.into())
 }
 
+/// 安装CLI二进制文件的主函数
 pub fn install_cli_binary(window: &mut Window, cx: &mut Context<Workspace>) {
-    const LINUX_PROMPT_DETAIL: &str = "If you installed Zed from our official release add ~/.local/bin to your PATH.\n\nIf you installed Zed from a different source like your package manager, then you may need to create an alias/symlink manually.\n\nDepending on your package manager, the CLI might be named zeditor, zedit, zed-editor or something else.";
+    const LINUX_PROMPT_DETAIL: &str = "如果你通过官方发行版安装了Zed，请将~/.local/bin添加到你的PATH中。\n\n如果你通过包管理器等其他来源安装了Zed，可能需要手动创建别名/符号链接。\n\n根据你的包管理器不同，CLI可能命名为zeditor、zedit、zed-editor或其他名称。";
 
     cx.spawn_in(window, async move |workspace, cx| {
         if cfg!(any(target_os = "linux", target_os = "freebsd")) {
             let prompt = cx.prompt(
                 PromptLevel::Warning,
-                "CLI should already be installed",
+                "CLI应该已安装",
                 Some(LINUX_PROMPT_DETAIL),
-                &["Ok"],
+                &["确定"],
             );
             cx.background_spawn(prompt).detach();
             return Ok(());
         }
         let path = install_script(cx.deref())
             .await
-            .context("error creating CLI symlink")?;
+            .context("创建CLI符号链接时出错")?;
 
         workspace.update_in(cx, |workspace, _, cx| {
             struct InstalledZedCli;
@@ -86,7 +86,7 @@ pub fn install_cli_binary(window: &mut Window, cx: &mut Context<Workspace>) {
                 Toast::new(
                     NotificationId::unique::<InstalledZedCli>(),
                     format!(
-                        "Installed `zed` to {}. You can launch {} from your terminal.",
+                        "已将`zed`安装至{}。你可以从终端启动{}。",
                         path.to_string_lossy(),
                         ReleaseChannel::global(cx).display_name()
                     ),
@@ -97,5 +97,5 @@ pub fn install_cli_binary(window: &mut Window, cx: &mut Context<Workspace>) {
         register_zed_scheme(cx).await.log_err();
         Ok(())
     })
-    .detach_and_prompt_err("Error installing zed cli", window, cx, |_, _, _| None);
+    .detach_and_prompt_err("安装zed cli时出错", window, cx, |_, _, _| None);
 }

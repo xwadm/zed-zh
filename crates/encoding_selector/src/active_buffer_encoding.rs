@@ -76,13 +76,13 @@ impl Render for ActiveBufferEncoding {
         }
 
         let (disabled, tooltip_text) = if self.is_dirty {
-            (true, "Save file to change encoding")
+            (true, "保存文件以更改编码")
         } else if self.is_shared {
-            (true, "Cannot change encoding during collaboration")
+            (true, "协作期间无法更改编码")
         } else if self.is_via_remote_server {
-            (true, "Cannot change encoding of remote server file")
+            (true, "无法更改远程服务器文件的编码")
         } else {
-            (false, "Reopen with Encoding")
+            (false, "使用编码重新打开")
         };
 
         div().child(

@@ -1,37 +1,36 @@
-//! # REPL Output Module
+//! # REPL 输出模块
 //!
-//! This module provides the core functionality for handling and displaying
-//! various types of output from Jupyter kernels.
+//! 该模块提供处理和显示 Jupyter 内核各类输出的核心功能。
 //!
-//! ## Key Components
+//! ## 核心组件
 //!
-//! - `OutputContent`: An enum that encapsulates different types of output content.
-//! - `ExecutionView`: Manages the display of outputs for a single execution.
-//! - `ExecutionStatus`: Represents the current status of an execution.
+//! - `OutputContent`：封装不同类型输出内容的枚举。
+//! - `ExecutionView`：管理单次代码执行的输出显示。
+//! - `ExecutionStatus`：表示代码执行的当前状态。
 //!
-//! ## Output Types
+//! ## 支持的输出类型
 //!
-//! The module supports several output types, including:
-//! - Plain text
+//! 模块支持多种输出类型，包括：
+//! - 纯文本
 //! - Markdown
-//! - Images (PNG and JPEG)
-//! - Tables
-//! - Error messages
+//! - 图片（PNG 和 JPEG）
+//! - 表格
+//! - 错误信息
 //!
-//! ## Clipboard Support
+//! ## 剪贴板支持
 //!
-//! Most output types implement the `SupportsClipboard` trait, allowing
-//! users to easily copy output content to the system clipboard.
+//! 大多数输出类型实现了 `SupportsClipboard` 特征，
+//! 允许用户轻松将输出内容复制到系统剪贴板。
 //!
-//! ## Rendering
+//! ## 渲染功能
 //!
-//! The module provides rendering capabilities for each output type,
-//! ensuring proper display within the REPL interface.
+//! 模块为每种输出类型提供渲染能力，
+//! 确保在 REPL 界面中正确显示。
 //!
-//! ## Jupyter Integration
+//! ## Jupyter 集成
 //!
-//! This module is designed to work with Jupyter message protocols,
-//! interpreting and displaying various types of Jupyter output.
+//! 该模块基于 Jupyter 消息协议设计，
+//! 可解析并显示各类 Jupyter 输出。
 
 use editor::{Editor, MultiBuffer};
 use gpui::{AnyElement, ClipboardItem, Entity, EventEmitter, Render, WeakEntity};
@@ -40,23 +39,30 @@ use menu;
 use runtimelib::{ExecutionState, JupyterMessage, JupyterMessageContent, MimeBundle, MimeType};
 use ui::{CommonAnimationExt, CopyButton, IconButton, Tooltip, prelude::*};
 
+// 图片输出视图
 mod image;
 use image::ImageView;
 
+// Markdown输出视图
 mod markdown;
 use markdown::MarkdownView;
 
+// 表格输出视图
 mod table;
 use table::TableView;
 
+// JSON输出视图
 mod json;
 use json::JsonView;
 
+// HTML输出处理
 mod html;
 
+// 纯文本/终端输出
 pub mod plain;
 use plain::TerminalOutput;
 
+// 用户错误视图
 pub(crate) mod user_error;
 use user_error::ErrorView;
 use workspace::Workspace;
@@ -64,7 +70,7 @@ use workspace::Workspace;
 use crate::repl_settings::ReplSettings;
 use settings::Settings;
 
-/// When deciding what to render from a collection of mediatypes, we need to rank them in order of importance
+/// 从媒体类型集合中选择渲染内容时，按重要性对媒体类型排序
 fn rank_mime_type(mimetype: &MimeType) -> usize {
     match mimetype {
         MimeType::DataTable(_) => 7,
@@ -74,24 +80,30 @@ fn rank_mime_type(mimetype: &MimeType) -> usize {
         MimeType::Jpeg(_) => 3,
         MimeType::Markdown(_) => 2,
         MimeType::Plain(_) => 1,
-        // All other media types are not supported in Zed at this time
+        // 目前Zed不支持所有其他媒体类型
         _ => 0,
     }
 }
 
+/// 输出内容特征：定义剪贴板/缓冲区操作能力
 pub(crate) trait OutputContent {
+    /// 获取剪贴板内容
     fn clipboard_content(&self, window: &Window, cx: &App) -> Option<ClipboardItem>;
+    /// 是否支持剪贴板内容
     fn has_clipboard_content(&self, _window: &Window, _cx: &App) -> bool {
         false
     }
+    /// 是否支持缓冲区内容
     fn has_buffer_content(&self, _window: &Window, _cx: &App) -> bool {
         false
     }
+    /// 获取缓冲区内容
     fn buffer_content(&mut self, _window: &mut Window, _cx: &mut App) -> Option<Entity<Buffer>> {
         None
     }
 }
 
+/// 为实体实现OutputContent特征
 impl<V: OutputContent + 'static> OutputContent for Entity<V> {
     fn clipboard_content(&self, window: &Window, cx: &App) -> Option<ClipboardItem> {
         self.read(cx).clipboard_content(window, cx)
@@ -110,36 +122,47 @@ impl<V: OutputContent + 'static> OutputContent for Entity<V> {
     }
 }
 
+/// 输出类型枚举：定义所有支持的REPL输出
 pub enum Output {
+    /// 纯文本输出
     Plain {
         content: Entity<TerminalOutput>,
         display_id: Option<String>,
     },
+    /// 流输出（标准输出/错误）
     Stream {
         content: Entity<TerminalOutput>,
     },
+    /// 图片输出
     Image {
         content: Entity<ImageView>,
         display_id: Option<String>,
     },
+    /// 错误输出
     ErrorOutput(ErrorView),
+    /// 普通消息输出
     Message(String),
+    /// 表格输出
     Table {
         content: Entity<TableView>,
         display_id: Option<String>,
     },
+    /// Markdown输出
     Markdown {
         content: Entity<MarkdownView>,
         display_id: Option<String>,
     },
+    /// JSON输出
     Json {
         content: Entity<JsonView>,
         display_id: Option<String>,
     },
+    /// 延迟清空输出标记
     ClearOutputWaitMarker,
 }
 
 impl Output {
+    /// 转换为Jupyter笔记本格式
     pub fn to_nbformat(&self, cx: &App) -> Option<nbformat::v4::Output> {
         match self {
             Output::Stream { content } => {
@@ -181,6 +204,7 @@ impl Output {
 }
 
 impl Output {
+    /// 渲染输出控件（复制、打开缓冲区按钮）
     fn render_output_controls<V: OutputContent + 'static>(
         v: Entity<V>,
         workspace: WeakEntity<Workspace>,
@@ -194,12 +218,13 @@ impl Output {
         Some(
             h_flex()
                 .pl_1()
+                // 渲染复制按钮
                 .when(v.has_clipboard_content(window, cx), |el| {
                     let v = v.clone();
                     el.child(
                         IconButton::new(ElementId::Name("copy-output".into()), IconName::Copy)
                             .style(ButtonStyle::Transparent)
-                            .tooltip(Tooltip::text("Copy Output"))
+                            .tooltip(Tooltip::text("复制输出"))
                             .on_click(move |_, window, cx| {
                                 let clipboard_content = v.clipboard_content(window, cx);
 
@@ -209,6 +234,7 @@ impl Output {
                             }),
                     )
                 })
+                // 渲染打开缓冲区按钮
                 .when(v.has_buffer_content(window, cx), |el| {
                     let v = v.clone();
                     el.child(
@@ -217,7 +243,7 @@ impl Output {
                             IconName::FileTextOutlined,
                         )
                         .style(ButtonStyle::Transparent)
-                        .tooltip(Tooltip::text("Open in Buffer"))
+                        .tooltip(Tooltip::text("在缓冲区中打开"))
                         .on_click({
                             let workspace = workspace.clone();
                             move |_, window, cx| {
@@ -253,6 +279,7 @@ impl Output {
         )
     }
 
+    /// 获取输出内容的渲染元素
     pub fn content(&self, window: &mut Window, cx: &mut App) -> Option<AnyElement> {
         match self {
             Self::Plain { content, .. } => Some(content.clone().into_any_element()),
@@ -267,6 +294,7 @@ impl Output {
         }
     }
 
+    /// 渲染单个输出
     pub fn render(
         &self,
         workspace: WeakEntity<Workspace>,
@@ -282,6 +310,7 @@ impl Output {
         h_flex()
             .id("output-content")
             .w_full()
+            // 表格需要横向滚动，其他输出隐藏横向溢出
             .when_else(
                 needs_horizontal_scroll,
                 |this| this.overflow_x_scroll(),
@@ -297,6 +326,7 @@ impl Output {
                     .children(content),
             )
             .children(match self {
+                // 为各类输出渲染控件
                 Self::Plain { content, .. } => {
                     Self::render_output_controls(content.clone(), workspace, window, cx)
                 }
@@ -312,6 +342,7 @@ impl Output {
                 Self::Json { content, .. } => {
                     Self::render_output_controls(content.clone(), workspace, window, cx)
                 }
+                // 错误输出专属控件：复制完整错误、打开错误缓冲区
                 Self::ErrorOutput(err) => Some(
                     h_flex()
                         .pl_1()
@@ -323,7 +354,7 @@ impl Output {
                             let full_error = format!("{}: {}\n{}", ename, evalue, traceback_text);
 
                             CopyButton::new("copy-full-error", full_error)
-                                .tooltip_label("Copy Full Error")
+                                .tooltip_label("复制完整错误")
                         })
                         .child(
                             IconButton::new(
@@ -331,7 +362,7 @@ impl Output {
                                 IconName::FileTextOutlined,
                             )
                             .style(ButtonStyle::Transparent)
-                            .tooltip(Tooltip::text("Open Full Error in Buffer"))
+                            .tooltip(Tooltip::text("在缓冲区中打开完整错误"))
                             .on_click({
                                 let ename = err.ename.clone();
                                 let evalue = err.evalue.clone();
@@ -377,6 +408,7 @@ impl Output {
             })
     }
 
+    /// 获取输出的显示ID
     pub fn display_id(&self) -> Option<String> {
         match self {
             Output::Plain { display_id, .. } => display_id.clone(),
@@ -391,6 +423,7 @@ impl Output {
         }
     }
 
+    /// 根据媒体类型创建输出实例
     pub fn new(
         data: &MimeBundle,
         display_id: Option<String>,
@@ -403,7 +436,7 @@ impl Output {
                     content: cx.new(|_| json_view),
                     display_id,
                 },
-                Err(_) => Output::Message("Failed to parse JSON".to_string()),
+                Err(_) => Output::Message("解析JSON失败".to_string()),
             },
             Some(MimeType::Plain(text)) => Output::Plain {
                 content: cx.new(|cx| TerminalOutput::from(text, window, cx)),
@@ -421,7 +454,7 @@ impl Output {
                     content: cx.new(|_| view),
                     display_id,
                 },
-                Err(error) => Output::Message(format!("Failed to load image: {}", error)),
+                Err(error) => Output::Message(format!("加载图片失败：{}", error)),
             },
             Some(MimeType::DataTable(data)) => Output::Table {
                 content: cx.new(|cx| TableView::new(data, window, cx)),
@@ -440,57 +473,62 @@ impl Output {
                     display_id,
                 },
             },
-            // Any other media types are not supported
-            _ => Output::Message("Unsupported media type".to_string()),
+            // 不支持的媒体类型
+            _ => Output::Message("不支持的媒体类型".to_string()),
         }
     }
 }
 
+/// 代码执行状态枚举
 #[derive(Default, Clone, Debug)]
 pub enum ExecutionStatus {
     #[default]
-    Unknown,
-    ConnectingToKernel,
-    Queued,
-    Executing,
-    Finished,
-    ShuttingDown,
-    Shutdown,
-    KernelErrored(String),
-    Restarting,
+    Unknown,        // 未知
+    ConnectingToKernel, // 连接内核中
+    Queued,         // 排队中
+    Executing,      // 执行中
+    Finished,       // 执行完成
+    ShuttingDown,   // 关闭中
+    Shutdown,       // 已关闭
+    KernelErrored(String), // 内核错误
+    Restarting,     // 重启中
 }
 
+/// 执行完成（无输出）事件
 pub struct ExecutionViewFinishedEmpty;
+/// 执行完成（简短输出）事件
 pub struct ExecutionViewFinishedSmall(pub String);
 
+/// 输入回复事件
 pub struct InputReplyEvent {
     pub value: String,
     pub parent_message: JupyterMessage,
 }
 
+/// 待处理输入：内核请求用户输入时存储
 struct PendingInput {
-    prompt: String,
-    password: bool,
-    editor: Entity<Editor>,
-    parent_message: JupyterMessage,
+    prompt: String,       // 输入提示
+    password: bool,       // 是否为密码输入
+    editor: Entity<Editor>, // 输入编辑器
+    parent_message: JupyterMessage, // 父消息
 }
 
-/// An ExecutionView shows the outputs of an execution.
-/// It can hold zero or more outputs, which the user
-/// sees as "the output" for a single execution.
+/// 执行视图：显示单次代码执行的所有输出
 pub struct ExecutionView {
     #[allow(unused)]
     workspace: WeakEntity<Workspace>,
-    pub outputs: Vec<Output>,
-    pub status: ExecutionStatus,
-    pending_input: Option<PendingInput>,
+    pub outputs: Vec<Output>,       // 输出列表
+    pub status: ExecutionStatus,   // 执行状态
+    pending_input: Option<PendingInput>, // 待处理输入
 }
 
+// 事件发射器实现
 impl EventEmitter<ExecutionViewFinishedEmpty> for ExecutionView {}
 impl EventEmitter<ExecutionViewFinishedSmall> for ExecutionView {}
 impl EventEmitter<InputReplyEvent> for ExecutionView {}
 
 impl ExecutionView {
+    /// 创建新的执行视图
     pub fn new(
         status: ExecutionStatus,
         workspace: WeakEntity<Workspace>,
@@ -504,10 +542,12 @@ impl ExecutionView {
         }
     }
 
+    /// 提交用户输入到内核
     fn submit_input(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if let Some(pending_input) = self.pending_input.take() {
             let value = pending_input.editor.read(cx).text(cx);
 
+            // 密码输入显示为*
             let display_text = if pending_input.password {
                 format!("{}{}", pending_input.prompt, "*".repeat(value.len()))
             } else {
@@ -515,6 +555,7 @@ impl ExecutionView {
             };
             self.outputs.push(Output::Message(display_text));
 
+            // 发送输入回复事件
             cx.emit(InputReplyEvent {
                 value,
                 parent_message: pending_input.parent_message,
@@ -523,7 +564,7 @@ impl ExecutionView {
         }
     }
 
-    /// Handle an InputRequest message, storing the full message for replying
+    /// 处理内核的输入请求
     pub fn handle_input_request(
         &mut self,
         message: &JupyterMessage,
@@ -534,9 +575,10 @@ impl ExecutionView {
             let prompt = input_request.prompt.clone();
             let password = input_request.password;
 
+            // 创建单行编辑器用于输入
             let editor = cx.new(|cx| {
                 let mut editor = Editor::single_line(window, cx);
-                editor.set_placeholder_text("Type here and press Enter", window, cx);
+                editor.set_placeholder_text("在此输入并按回车", window, cx);
                 if password {
                     editor.set_masked(true, cx);
                 }
@@ -553,7 +595,7 @@ impl ExecutionView {
         }
     }
 
-    /// Accept a Jupyter message belonging to this execution
+    /// 接收Jupyter消息并处理
     pub fn push_message(
         &mut self,
         message: &JupyterMessageContent,
@@ -574,7 +616,7 @@ impl ExecutionView {
                 cx,
             ),
             JupyterMessageContent::StreamContent(result) => {
-                // Previous stream data will combine together, handling colors, carriage returns, etc
+                // 合并连续的流输出，处理颜色、回车符等
                 if let Some(new_terminal) = self.apply_terminal_text(&result.text, window, cx) {
                     new_terminal
                 } else {
@@ -592,6 +634,7 @@ impl ExecutionView {
                 })
             }
             JupyterMessageContent::ExecuteReply(reply) => {
+                // 处理执行回复的负载数据
                 for payload in reply.payload.iter() {
                     if let runtimelib::Payload::Page { data, .. } = payload {
                         let output = Output::new(data, None, window, cx);
@@ -602,20 +645,22 @@ impl ExecutionView {
                 return;
             }
             JupyterMessageContent::ClearOutput(options) => {
+                // 立即清空输出
                 if !options.wait {
                     self.outputs.clear();
                     cx.notify();
                     return;
                 }
 
-                // Create a marker to clear the output after we get in a new output
+                // 延迟清空：等待下一个输出后清空
                 Output::ClearOutputWaitMarker
             }
             JupyterMessageContent::InputRequest(_) => {
-                // InputRequest is handled by handle_input_request which needs the full message
+                // 输入请求由单独的handle_input_request处理
                 return;
             }
             JupyterMessageContent::Status(status) => {
+                // 更新执行状态
                 match status.execution_state {
                     ExecutionState::Busy => {
                         self.status = ExecutionStatus::Executing;
@@ -623,9 +668,11 @@ impl ExecutionView {
                     ExecutionState::Idle => {
                         self.status = ExecutionStatus::Finished;
                         self.pending_input = None;
+                        // 无输出时触发完成事件
                         if self.outputs.is_empty() {
                             cx.emit(ExecutionViewFinishedEmpty);
                         } else if ReplSettings::get_global(cx).inline_output {
+                            // 简短输出触发内联显示事件
                             if let Some(small_text) = self.get_small_inline_output(cx) {
                                 cx.emit(ExecutionViewFinishedSmall(small_text));
                             }
@@ -647,7 +694,7 @@ impl ExecutionView {
             }
         };
 
-        // Check for a clear output marker as the previous output, so we can clear it out
+        // 处理延迟清空标记
         if let Some(output) = self.outputs.last()
             && let Output::ClearOutputWaitMarker = output
         {
@@ -659,6 +706,7 @@ impl ExecutionView {
         cx.notify();
     }
 
+    /// 更新显示数据（动态更新输出）
     pub fn update_display_data(
         &mut self,
         data: &MimeBundle,
@@ -682,17 +730,16 @@ impl ExecutionView {
         }
     }
 
-    /// Check if the output is a single small plain text that can be shown inline.
-    /// Returns the text if it's suitable for inline display (single line, short enough).
+    /// 检查是否为可内联显示的简短纯文本输出
     fn get_small_inline_output(&self, cx: &App) -> Option<String> {
-        // Only consider single outputs
+        // 仅支持单个输出
         if self.outputs.len() != 1 {
             return None;
         }
 
         let output = self.outputs.first()?;
 
-        // Only Plain outputs can be inlined
+        // 仅纯文本输出可内联
         let content = match output {
             Output::Plain { content, .. } => content,
             _ => return None,
@@ -703,7 +750,7 @@ impl ExecutionView {
 
         let max_length = ReplSettings::get_global(cx).inline_output_max_length;
 
-        // Must be a single line and within the configured max length
+        // 必须是单行且长度符合限制
         if trimmed.contains('\n') || trimmed.len() > max_length {
             return None;
         }
@@ -711,6 +758,7 @@ impl ExecutionView {
         Some(trimmed.to_string())
     }
 
+    /// 追加终端文本（合并流输出）
     fn apply_terminal_text(
         &mut self,
         text: &str,
@@ -722,8 +770,7 @@ impl ExecutionView {
                 content: last_stream,
             } = last_output
         {
-            // Don't need to add a new output, we already have a terminal output
-            // and can just update the most recent terminal output
+            // 直接更新最后一个流输出，无需新建
             last_stream.update(cx, |last_stream, cx| {
                 last_stream.append_text(text, cx);
                 cx.notify();
@@ -731,6 +778,7 @@ impl ExecutionView {
             return None;
         }
 
+        // 新建流输出
         Some(Output::Stream {
             content: cx.new(|cx| TerminalOutput::from(text, window, cx)),
         })
@@ -750,10 +798,12 @@ impl ExecutionView {
     }
 }
 
+/// 执行视图渲染实现
 impl Render for ExecutionView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // 渲染执行状态
         let status = match &self.status {
-            ExecutionStatus::ConnectingToKernel => Label::new("Connecting to kernel...")
+            ExecutionStatus::ConnectingToKernel => Label::new("连接内核中...")
                 .color(Color::Muted)
                 .into_any_element(),
             ExecutionStatus::Executing => h_flex()
@@ -764,39 +814,41 @@ impl Render for ExecutionView {
                         .color(Color::Muted)
                         .with_rotate_animation(3),
                 )
-                .child(Label::new("Executing...").color(Color::Muted))
+                .child(Label::new("执行中...").color(Color::Muted))
                 .into_any_element(),
             ExecutionStatus::Finished => Icon::new(IconName::Check)
                 .size(IconSize::Small)
                 .into_any_element(),
-            ExecutionStatus::Unknown => Label::new("Unknown status")
+            ExecutionStatus::Unknown => Label::new("未知状态")
                 .color(Color::Muted)
                 .into_any_element(),
-            ExecutionStatus::ShuttingDown => Label::new("Kernel shutting down...")
+            ExecutionStatus::ShuttingDown => Label::new("内核关闭中...")
                 .color(Color::Muted)
                 .into_any_element(),
-            ExecutionStatus::Restarting => Label::new("Kernel restarting...")
+            ExecutionStatus::Restarting => Label::new("内核重启中...")
                 .color(Color::Muted)
                 .into_any_element(),
-            ExecutionStatus::Shutdown => Label::new("Kernel shutdown")
+            ExecutionStatus::Shutdown => Label::new("内核已关闭")
                 .color(Color::Muted)
                 .into_any_element(),
-            ExecutionStatus::Queued => Label::new("Queued...")
+            ExecutionStatus::Queued => Label::new("排队中...")
                 .color(Color::Muted)
                 .into_any_element(),
-            ExecutionStatus::KernelErrored(error) => Label::new(format!("Kernel error: {}", error))
+            ExecutionStatus::KernelErrored(error) => Label::new(format!("内核错误：{}", error))
                 .color(Color::Error)
                 .into_any_element(),
         };
 
+        // 渲染待处理输入框
         let pending_input_element = self.pending_input.as_ref().map(|pending_input| {
             let prompt_label = if pending_input.prompt.is_empty() {
-                "Input:".to_string()
+                "输入：".to_string()
             } else {
                 pending_input.prompt.clone()
             };
 
             div()
+                // 按回车提交输入
                 .on_action(cx.listener(|this, _: &menu::Confirm, window, cx| {
                     this.submit_input(window, cx);
                 }))
@@ -817,6 +869,7 @@ impl Render for ExecutionView {
                 )
         });
 
+        // 无输出且无待输入时，仅显示状态
         if self.outputs.is_empty() && pending_input_element.is_none() {
             return v_flex()
                 .min_h(window.line_height())
@@ -825,6 +878,7 @@ impl Render for ExecutionView {
                 .into_any_element();
         }
 
+        // 渲染所有输出 + 待输入 + 执行状态
         div()
             .w_full()
             .children(
@@ -844,6 +898,7 @@ impl Render for ExecutionView {
 
 #[cfg(test)]
 mod tests {
+    // 测试模块：所有测试用例保留英文注释（测试代码通用规范）
     use super::*;
     use gpui::TestAppContext;
     use runtimelib::{
@@ -1231,7 +1286,6 @@ mod tests {
                 );
                 view.handle_input_request(&message, window, cx);
 
-                // Type into the editor
                 if let Some(ref pending) = view.pending_input {
                     pending.editor.update(cx, |editor, cx| {
                         editor.set_text("test_user", window, cx);
@@ -1271,7 +1325,6 @@ mod tests {
                 view.handle_input_request(&message, window, cx);
                 assert!(view.pending_input.is_some());
 
-                // Simulate kernel going idle (e.g., execution interrupted)
                 let idle = JupyterMessageContent::Status(Status {
                     execution_state: ExecutionState::Idle,
                 });

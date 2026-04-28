@@ -360,7 +360,7 @@ impl<T: 'static> PromptEditor<T> {
         self.editor = cx.new(|cx| {
             let mut editor = Editor::auto_height(1, Self::MAX_LINES as usize, window, cx);
             editor.set_soft_wrap_mode(language::language_settings::SoftWrap::EditorWidth, cx);
-            editor.set_placeholder_text("Add a prompt…", window, cx);
+            editor.set_placeholder_text("添加提示…", window, cx);
             editor.set_text(prompt, window, cx);
             creases = insert_message_creases(&mut editor, &existing_creases, window, cx);
 
@@ -735,7 +735,7 @@ impl<T: 'static> PromptEditor<T> {
                         .autohide();
 
                         if let Some(uuid) = uuid {
-                            toast = toast.on_click("Click to copy rating ID", move |_, cx| {
+                            toast = toast.on_click("点击复制评分 ID", move |_, cx| {
                                 cx.write_to_clipboard(ClipboardItem::new_string(uuid.to_string()));
                             });
                         };

@@ -1026,7 +1026,7 @@ fn handle_open_request(request: OpenRequest, app_state: Arc<AppState>, cx: &mut 
                             workspace.show_toast(
                                 Toast::new(
                                     NotificationId::unique::<ImportedThreadToast>(),
-                                    format!("Imported shared thread from {}", sharer_username),
+                                    format!("已从 {} 导入共享线程", sharer_username),
                                 )
                                 .autohide(),
                                 cx,

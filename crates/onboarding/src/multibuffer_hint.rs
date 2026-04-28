@@ -8,14 +8,17 @@ use ui::{IconButtonShape, Tooltip, prelude::*};
 use workspace::item::{ItemBufferKind, ItemEvent, ItemHandle};
 use workspace::{ToolbarItemEvent, ToolbarItemLocation, ToolbarItemView};
 
+/// 多缓冲区提示组件，用于引导用户使用结果多缓冲区编辑保存功能
 pub struct MultibufferHint {
     shown_on: HashSet<EntityId>,
     active_item: Option<Box<dyn ItemHandle>>,
     subscription: Option<Subscription>,
 }
 
+/// 最大提示显示次数
 const NUMBER_OF_HINTS: usize = 10;
 
+/// 提示显示次数的存储键
 const SHOWN_COUNT_KEY: &str = "MULTIBUFFER_HINT_SHOWN_COUNT";
 
 impl Default for MultibufferHint {
@@ -35,6 +38,7 @@ impl MultibufferHint {
 }
 
 impl MultibufferHint {
+    /// 获取提示计数原子变量（全局单例）
     fn counter(cx: &App) -> &'static AtomicUsize {
         static SHOWN_COUNT: OnceLock<AtomicUsize> = OnceLock::new();
         SHOWN_COUNT.get_or_init(|| {
@@ -49,14 +53,17 @@ impl MultibufferHint {
         })
     }
 
+    /// 获取当前已显示的提示次数
     fn shown_count(cx: &App) -> usize {
         Self::counter(cx).load(Ordering::Relaxed)
     }
 
+    /// 增加提示显示次数
     fn increment_count(cx: &mut App) {
         Self::set_count(Self::shown_count(cx) + 1, cx)
     }
 
+    /// 设置提示显示次数并持久化存储
     pub(crate) fn set_count(count: usize, cx: &mut App) {
         Self::counter(cx).store(count, Ordering::Relaxed);
 
@@ -67,20 +74,24 @@ impl MultibufferHint {
         });
     }
 
+    /// 关闭提示（设置为最大次数，不再显示）
     fn dismiss(&mut self, cx: &mut App) {
         Self::set_count(NUMBER_OF_HINTS, cx)
     }
 
-    /// Determines the toolbar location for this [`MultibufferHint`].
+    /// 确定提示在工具栏中的显示位置
     fn determine_toolbar_location(&mut self, cx: &mut Context<Self>) -> ToolbarItemLocation {
+        // 达到最大显示次数，隐藏提示
         if Self::shown_count(cx) >= NUMBER_OF_HINTS {
             return ToolbarItemLocation::Hidden;
         }
 
+        // 无激活项目，隐藏提示
         let Some(active_pane_item) = self.active_item.as_ref() else {
             return ToolbarItemLocation::Hidden;
         };
 
+        // 单例缓冲区/无面包屑/不可保存时，隐藏提示
         if active_pane_item.buffer_kind(cx) == ItemBufferKind::Singleton
             || active_pane_item.breadcrumbs(cx).is_none()
             || !active_pane_item.can_save(cx)
@@ -88,10 +99,12 @@ impl MultibufferHint {
             return ToolbarItemLocation::Hidden;
         }
 
+        // 记录已显示提示的项目，增加计数
         if self.shown_on.insert(active_pane_item.item_id()) {
             Self::increment_count(cx);
         }
 
+        // 在二级工具栏显示
         ToolbarItemLocation::Secondary
     }
 }
@@ -99,6 +112,7 @@ impl MultibufferHint {
 impl EventEmitter<ToolbarItemEvent> for MultibufferHint {}
 
 impl ToolbarItemView for MultibufferHint {
+    /// 设置激活的面板项目，更新提示显示状态
     fn set_active_pane_item(
         &mut self,
         active_pane_item: Option<&dyn ItemHandle>,
@@ -154,12 +168,10 @@ impl Render for MultibufferHint {
                                     .size(IconSize::XSmall)
                                     .color(Color::Muted),
                             )
-                            .child(Label::new(
-                                "Edit and save files directly in the results multibuffer!",
-                            )),
+                            .child(Label::new("直接在结果多缓冲区中编辑并保存文件！")),
                     )
                     .child(
-                        Button::new("open_docs", "Learn More")
+                        Button::new("open_docs", "了解更多")
                             .end_icon(
                                 Icon::new(IconName::ArrowUpRight)
                                     .size(IconSize::Small)
@@ -180,7 +192,7 @@ impl Render for MultibufferHint {
                             ToolbarItemLocation::Hidden,
                         ))
                     }))
-                    .tooltip(Tooltip::text("Dismiss Hint")),
+                    .tooltip(Tooltip::text("关闭提示")),
             )
             .into_any_element()
     }

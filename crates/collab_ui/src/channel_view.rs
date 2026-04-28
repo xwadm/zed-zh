@@ -33,15 +33,17 @@ use workspace::{item::Dedup, notifications::NotificationId};
 actions!(
     collab,
     [
-        /// Copies a link to the current position in the channel buffer.
+        /// 复制频道缓冲区当前位置的链接
         CopyLink
     ]
 );
 
+/// 注册频道视图为可跟随视图
 pub fn init(cx: &mut App) {
     workspace::FollowableViewRegistry::register::<ChannelView>(cx)
 }
 
+/// 频道视图，承载频道笔记的编辑器界面
 pub struct ChannelView {
     pub editor: Entity<Editor>,
     workspace: WeakEntity<Workspace>,
@@ -54,6 +56,7 @@ pub struct ChannelView {
 }
 
 impl ChannelView {
+    /// 打开频道笔记视图并添加到活动窗格
     pub fn open(
         channel_id: ChannelId,
         link_position: Option<String>,
@@ -87,6 +90,7 @@ impl ChannelView {
         })
     }
 
+    /// 在指定窗格中打开频道笔记视图
     pub fn open_in_pane(
         channel_id: ChannelId,
         link_position: Option<String>,
@@ -106,7 +110,7 @@ impl ChannelView {
                     .items_of_type::<Self>()
                     .find(|view| view.read(cx).channel_buffer.read(cx).remote_id(cx) == buffer_id);
 
-                // If this channel buffer is already open in this pane, just return it.
+                // 如果频道缓冲区已在当前窗格打开，直接返回现有视图
                 if let Some(existing_view) = existing_view.clone()
                     && existing_view.read(cx).channel_buffer == channel_view.read(cx).channel_buffer
                 {
@@ -118,8 +122,7 @@ impl ChannelView {
                     return existing_view;
                 }
 
-                // If the pane contained a disconnected view for this channel buffer,
-                // replace that.
+                // 如果窗格包含该频道缓冲区的断开连接视图，替换它
                 if let Some(existing_item) = existing_view
                     && let Some(ix) = pane.index_for_item(&existing_item)
                 {
@@ -146,6 +149,7 @@ impl ChannelView {
         })
     }
 
+    /// 加载频道缓冲区并创建视图
     pub fn load(
         channel_id: ChannelId,
         workspace: Entity<Workspace>,
@@ -190,6 +194,7 @@ impl ChannelView {
         })
     }
 
+    /// 初始化频道视图
     pub fn new(
         project: Entity<Project>,
         workspace: WeakEntity<Workspace>,
@@ -208,7 +213,7 @@ impl ChannelView {
             editor.set_custom_context_menu(move |_, position, window, cx| {
                 let this = this.clone();
                 Some(ui::ContextMenu::build(window, cx, move |menu, _, _| {
-                    menu.entry("Copy Link to Section", None, move |window, cx| {
+                    menu.entry("复制章节链接", None, move |window, cx| {
                         this.update(cx, |this, cx| {
                             this.copy_link_for_position(position, window, cx)
                         })
@@ -239,6 +244,7 @@ impl ChannelView {
         }
     }
 
+    /// 根据链接定位并聚焦到指定位置
     fn focus_position_from_link(
         &mut self,
         position: String,
@@ -289,6 +295,7 @@ impl ChannelView {
         ));
     }
 
+    /// 复制链接动作处理
     fn copy_link(&mut self, _: &CopyLink, window: &mut Window, cx: &mut Context<Self>) {
         let position = self.editor.update(cx, |editor, cx| {
             editor
@@ -299,6 +306,7 @@ impl ChannelView {
         self.copy_link_for_position(position, window, cx)
     }
 
+    /// 复制指定位置的链接
     fn copy_link_for_position(
         &self,
         position: DisplayPoint,
@@ -333,7 +341,7 @@ impl ChannelView {
                 workspace.show_toast(
                     Toast::new(
                         NotificationId::unique::<CopyLinkForPositionToast>(),
-                        "Link copied to clipboard",
+                        "链接已复制到剪贴板",
                     ),
                     cx,
                 );
@@ -341,10 +349,12 @@ impl ChannelView {
             .ok();
     }
 
+    /// 获取当前关联的频道
     pub fn channel(&self, cx: &App) -> Option<Arc<Channel>> {
         self.channel_buffer.read(cx).channel(cx)
     }
 
+    /// 处理频道缓冲区事件
     fn handle_channel_buffer_event(
         &mut self,
         _: &Entity<ChannelBuffer>,
@@ -386,6 +396,7 @@ impl ChannelView {
         }
     }
 
+    /// 确认缓冲区版本
     fn acknowledge_buffer_version(&mut self, cx: &mut Context<ChannelView>) {
         self.channel_store.update(cx, |store, cx| {
             let channel_buffer = self.channel_buffer.read(cx);
@@ -401,6 +412,7 @@ impl ChannelView {
         });
     }
 
+    /// 获取频道名称和状态
     fn get_channel(&self, cx: &App) -> (SharedString, Option<SharedString>) {
         if let Some(channel) = self.channel(cx) {
             let status = match (
@@ -408,13 +420,13 @@ impl ChannelView {
                 self.channel_buffer.read(cx).is_connected(),
             ) {
                 (false, true) => None,
-                (true, true) => Some("read-only"),
-                (_, false) => Some("disconnected"),
+                (true, true) => Some("只读"),
+                (_, false) => Some("已断开连接"),
             };
 
             (channel.name.clone(), status.map(Into::into))
         } else {
-            ("<unknown>".into(), Some("disconnected".into()))
+            ("<未知>".into(), Some("已断开连接".into()))
         }
     }
 }
@@ -422,6 +434,7 @@ impl ChannelView {
 impl EventEmitter<EditorEvent> for ChannelView {}
 
 impl Render for ChannelView {
+    /// 渲染频道视图
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .size_full()
@@ -454,6 +467,7 @@ impl Item for ChannelView {
         }
     }
 
+    /// 获取标签图标
     fn tab_icon(&self, _: &Window, cx: &App) -> Option<Icon> {
         let channel = self.channel(cx)?;
         let icon = match channel.visibility {
@@ -473,6 +487,7 @@ impl Item for ChannelView {
         }
     }
 
+    /// 渲染标签内容
     fn tab_content(&self, params: TabContentParams, _: &Window, cx: &App) -> gpui::AnyElement {
         let (name, status) = self.get_channel(cx);
         h_flex()
@@ -500,6 +515,7 @@ impl Item for ChannelView {
         true
     }
 
+    /// 分割视图时克隆
     fn clone_on_split(
         &self,
         _: Option<WorkspaceId>,
@@ -566,6 +582,7 @@ impl FollowableItem for ChannelView {
         self.remote_id
     }
 
+    /// 转换为协议状态
     fn to_state_proto(&self, window: &mut Window, cx: &mut App) -> Option<proto::view::Variant> {
         let (is_connected, channel_id) = {
             let channel_buffer = self.channel_buffer.read(cx);
@@ -590,6 +607,7 @@ impl FollowableItem for ChannelView {
         ))
     }
 
+    /// 从协议状态恢复视图
     fn from_state_proto(
         workspace: Entity<workspace::Workspace>,
         remote_id: workspace::ViewId,
@@ -683,6 +701,7 @@ impl FollowableItem for ChannelView {
         Editor::to_follow_event(event)
     }
 
+    /// 视图去重逻辑
     fn dedup(&self, existing: &Self, _: &Window, cx: &App) -> Option<Dedup> {
         let existing = existing.channel_buffer.read(cx);
         if self.channel_buffer.read(cx).channel_id == existing.channel_id {
@@ -697,6 +716,7 @@ impl FollowableItem for ChannelView {
     }
 }
 
+/// 频道缓冲区协作中心
 struct ChannelBufferCollaborationHub(Entity<ChannelBuffer>);
 
 impl CollaborationHub for ChannelBufferCollaborationHub {

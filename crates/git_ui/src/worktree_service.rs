@@ -696,8 +696,7 @@ async fn open_worktree_workspace(
                     workspace.show_toast(
                         workspace::Toast::new(
                             toast_id,
-                            "Some project folders are not git repositories. \
-                             They were included as-is without creating a worktree.",
+                            "部分项目文件夹不是 git 仓库。它们已按原样包含，未创建工作树。",
                         ),
                         cx,
                     );

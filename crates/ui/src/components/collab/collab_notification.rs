@@ -3,6 +3,7 @@ use smallvec::SmallVec;
 
 use crate::{Avatar, prelude::*};
 
+/// 协作通知组件，用于展示协作相关的通知（通话、屏幕共享、项目共享、联系人请求等）
 #[derive(IntoElement, RegisterComponent)]
 pub struct CollabNotification {
     avatar_uri: SharedUri,
@@ -12,6 +13,10 @@ pub struct CollabNotification {
 }
 
 impl CollabNotification {
+    /// 创建协作通知
+    /// - avatar_uri: 发起通知用户的头像地址
+    /// - accept_button: 接受/确认按钮
+    /// - dismiss_button: 拒绝/忽略按钮
     pub fn new(
         avatar_uri: impl Into<SharedUri>,
         accept_button: Button,
@@ -46,12 +51,15 @@ impl RenderOnce for CollabNotification {
                 h_flex()
                     .min_w_0()
                     .gap_4()
+                    // 显示用户头像
                     .child(Avatar::new(self.avatar_uri).size(px(40.)))
+                    // 通知文本内容
                     .child(v_flex().truncate().children(self.children)),
             )
             .child(
                 v_flex()
                     .items_center()
+                    // 操作按钮：接受 + 拒绝
                     .child(self.accept_button)
                     .child(self.dismiss_button),
             )
@@ -63,62 +71,64 @@ impl Component for CollabNotification {
         ComponentScope::Collaboration
     }
 
+    /// 组件预览效果
     fn preview(_window: &mut Window, _cx: &mut App) -> Option<AnyElement> {
         let avatar = "https://avatars.githubusercontent.com/u/67129314?v=4";
-        let container = || div().h(px(72.)).w(px(400.)); // Size of the actual notification window
+        let container = || div().h(px(72.)).w(px(400.)); // 通知窗口固定尺寸
 
+        // 通话 & 项目共享示例
         let call_examples = vec![
             single_example(
-                "Incoming Call",
+                "来电邀请",
                 container()
                     .child(
                         CollabNotification::new(
                             avatar,
-                            Button::new("accept", "Accept"),
-                            Button::new("decline", "Decline"),
+                            Button::new("accept", "接受"),
+                            Button::new("decline", "拒绝"),
                         )
-                        .child(Label::new("the user is inviting you to a call")),
+                        .child(Label::new("邀请你加入通话")),
                     )
                     .into_any_element(),
             ),
             single_example(
-                "Screen Share Request",
+                "屏幕共享请求",
                 container()
                     .child(
                         CollabNotification::new(
                             avatar,
-                            Button::new("accept", "View"),
-                            Button::new("decline", "Ignore"),
+                            Button::new("accept", "查看"),
+                            Button::new("decline", "忽略"),
                         )
-                        .child(Label::new("the user is sharing their screen")),
+                        .child(Label::new("正在共享屏幕")),
                     )
                     .into_any_element(),
             ),
             single_example(
-                "Project Shared",
+                "项目共享",
                 container()
                     .child(
                         CollabNotification::new(
                             avatar,
-                            Button::new("accept", "Open"),
-                            Button::new("decline", "Dismiss"),
+                            Button::new("accept", "打开"),
+                            Button::new("decline", "关闭"),
                         )
-                        .child(Label::new("the user is sharing a project"))
+                        .child(Label::new("共享了一个项目"))
                         .child(Label::new("zed").color(Color::Muted)),
                     )
                     .into_any_element(),
             ),
             single_example(
-                "Overflowing Content",
+                "内容溢出适配",
                 container()
                     .child(
                         CollabNotification::new(
                             avatar,
-                            Button::new("accept", "Accept"),
-                            Button::new("decline", "Decline"),
+                            Button::new("accept", "接受"),
+                            Button::new("decline", "拒绝"),
                         )
                         .child(Label::new(
-                            "a_very_long_username_that_might_overflow is sharing a project in Zed:",
+                            "a_very_long_username_that_might_overflow 正在 Zed 中共享项目：",
                         ))
                         .child(
                             Label::new("zed-cloud, zed, edit-prediction-bench, zed.dev")
@@ -129,44 +139,45 @@ impl Component for CollabNotification {
             ),
         ];
 
+        // 联系人 & 频道通知示例
         let toast_examples = vec![
             single_example(
-                "Contact Request",
+                "联系人请求",
                 container()
                     .child(
                         CollabNotification::new(
                             avatar,
-                            Button::new("accept", "Accept"),
-                            Button::new("decline", "Decline"),
+                            Button::new("accept", "接受"),
+                            Button::new("decline", "拒绝"),
                         )
-                        .child(Label::new("maxbrunsfeld wants to add you as a contact")),
+                        .child(Label::new("maxbrunsfeld 请求添加你为联系人")),
                     )
                     .into_any_element(),
             ),
             single_example(
-                "Contact Request Accepted",
+                "联系人请求已接受",
                 container()
                     .child(
                         CollabNotification::new(
                             avatar,
-                            Button::new("dismiss", "Dismiss"),
-                            Button::new("close", "Close"),
+                            Button::new("dismiss", "关闭"),
+                            Button::new("close", "关闭"),
                         )
-                        .child(Label::new("maxbrunsfeld accepted your contact request")),
+                        .child(Label::new("maxbrunsfeld 接受了你的联系人请求")),
                     )
                     .into_any_element(),
             ),
             single_example(
-                "Channel Invitation",
+                "频道邀请",
                 container()
                     .child(
                         CollabNotification::new(
                             avatar,
-                            Button::new("accept", "Accept"),
-                            Button::new("decline", "Decline"),
+                            Button::new("accept", "接受"),
+                            Button::new("decline", "拒绝"),
                         )
                         .child(Label::new(
-                            "maxbrunsfeld invited you to join the #zed channel",
+                            "maxbrunsfeld 邀请你加入 #zed 频道",
                         )),
                     )
                     .into_any_element(),
@@ -176,9 +187,9 @@ impl Component for CollabNotification {
         Some(
             v_flex()
                 .gap_6()
-                .child(example_group_with_title("Calls & Projects", call_examples).vertical())
+                .child(example_group_with_title("通话 & 项目共享", call_examples).vertical())
                 .child(
-                    example_group_with_title("Contact & Channel Toasts", toast_examples).vertical(),
+                    example_group_with_title("联系人 & 频道通知", toast_examples).vertical(),
                 )
                 .into_any_element(),
         )

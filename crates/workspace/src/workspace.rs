@@ -3257,9 +3257,9 @@ impl Workspace {
                     let answer = cx.update(|window, cx| {
                         window.prompt(
                             PromptLevel::Warning,
-                            "Do you want to leave the current call?",
+                            "确定要离开当前通话吗？",
                             None,
-                            &["Close window and hang up", "Cancel"],
+                            &["关闭窗口并挂断", "取消"],
                             cx,
                         )
                     })?;
@@ -3478,9 +3478,9 @@ impl Workspace {
                         );
                         window.prompt(
                             PromptLevel::Warning,
-                            "Do you want to save all changes in the following files?",
+                            "是否保存以下文件的所有更改？",
                             Some(&detail),
-                            &["Save all", "Discard all", "Cancel"],
+                            &["全部保存", "全部丢弃", 	"取消"],
                             cx,
                         )
                     })?;

@@ -315,10 +315,10 @@ pub async fn open_remote_project(
                         window.prompt(
                             PromptLevel::Critical,
                             match connection_options {
-                                RemoteConnectionOptions::Ssh(_) => "Failed to connect over SSH",
-                                RemoteConnectionOptions::Wsl(_) => "Failed to connect to WSL",
+                                RemoteConnectionOptions::Ssh(_) => 	"SSH 连接失败",
+                                RemoteConnectionOptions::Wsl(_) => "WSL 连接失败",
                                 RemoteConnectionOptions::Docker(_) => {
-                                    "Failed to connect to Dev Container"
+                                    "Dev Container 连接失败"
                                 }
                                 #[cfg(any(test, feature = "test-support"))]
                                 RemoteConnectionOptions::Mock(_) => {
@@ -326,7 +326,7 @@ pub async fn open_remote_project(
                                 }
                             },
                             Some(&format!("{e:#}")),
-                            &["Retry", "Cancel"],
+                            &["重试", "取消"],
                             cx,
                         )
                     })?

@@ -316,7 +316,7 @@ pub fn init(cx: &mut App) {
                         请注意，Zed 目前不支持在 WSL 中打开网络共享文件夹。
                     "#};
 
-                    let _ = cx.prompt(gpui::PromptLevel::Critical, "Invalid path", Some(&message), &["Ok"]).await;
+                    let _ = cx.prompt(gpui::PromptLevel::Critical, "无效路径", Some(&message), &["Ok"]).await;
                     return;
                 }
 

@@ -29,14 +29,18 @@ use crate::{
     thread_metadata_store::{ThreadId, ThreadMetadata, ThreadMetadataStore, WorktreePaths},
 };
 
+/// ACP线程导入引导标记
 pub struct AcpThreadImportOnboarding;
+/// 跨频道导入引导标记
 pub struct CrossChannelImportOnboarding;
 
 impl AcpThreadImportOnboarding {
+    /// 检查是否已关闭该引导
     pub fn dismissed(cx: &App) -> bool {
         <Self as Dismissable>::dismissed(cx)
     }
 
+    /// 关闭该引导
     pub fn dismiss(cx: &mut App) {
         <Self as Dismissable>::set_dismissed(true, cx);
     }
@@ -47,10 +51,12 @@ impl Dismissable for AcpThreadImportOnboarding {
 }
 
 impl CrossChannelImportOnboarding {
+    /// 检查是否已关闭该引导
     pub fn dismissed(cx: &App) -> bool {
         <Self as Dismissable>::dismissed(cx)
     }
 
+    /// 关闭该引导
     pub fn dismiss(cx: &mut App) {
         <Self as Dismissable>::set_dismissed(true, cx);
     }
@@ -60,9 +66,8 @@ impl Dismissable for CrossChannelImportOnboarding {
     const KEY: &'static str = "dismissed-cross-channel-thread-import";
 }
 
-/// Returns the list of non-Dev, non-current release channels that have
-/// at least one thread in their database.  The result is suitable for
-/// building a user-facing message ("from Zed Preview and Nightly").
+/// 返回非开发版、非当前发布频道且数据库中至少有一个线程的频道列表
+/// 结果适用于构建用户可见的提示信息（例如：从Zed预览版和每日构建版）
 pub fn channels_with_threads(cx: &App) -> Vec<ReleaseChannel> {
     let Some(current_channel) = ReleaseChannel::try_global(cx) else {
         return Vec::new();
@@ -87,6 +92,7 @@ struct AgentEntry {
     icon_path: Option<SharedString>,
 }
 
+/// 线程导入弹窗
 pub struct ThreadImportModal {
     focus_handle: FocusHandle,
     workspace: WeakEntity<Workspace>,
@@ -99,6 +105,7 @@ pub struct ThreadImportModal {
 }
 
 impl ThreadImportModal {
+    /// 创建线程导入弹窗实例
     pub fn new(
         agent_server_store: Entity<AgentServerStore>,
         agent_registry_store: Entity<AgentRegistryStore>,
@@ -154,6 +161,7 @@ impl ThreadImportModal {
         }
     }
 
+    /// 获取所有代理ID
     fn agent_ids(&self) -> Vec<AgentId> {
         self.agent_entries
             .iter()
@@ -161,6 +169,7 @@ impl ThreadImportModal {
             .collect()
     }
 
+    /// 切换代理的选中状态
     fn toggle_agent_checked(&mut self, agent_id: AgentId, cx: &mut Context<Self>) {
         if self.unchecked_agents.contains(&agent_id) {
             self.unchecked_agents.remove(&agent_id);
@@ -170,6 +179,7 @@ impl ThreadImportModal {
         cx.notify();
     }
 
+    /// 选择下一个代理
     fn select_next(&mut self, _: &menu::SelectNext, _window: &mut Window, cx: &mut Context<Self>) {
         if self.agent_entries.is_empty() {
             return;
@@ -182,6 +192,7 @@ impl ThreadImportModal {
         cx.notify();
     }
 
+    /// 选择上一个代理
     fn select_previous(
         &mut self,
         _: &menu::SelectPrevious,
@@ -199,6 +210,7 @@ impl ThreadImportModal {
         cx.notify();
     }
 
+    /// 确认选择
     fn confirm(&mut self, _: &menu::Confirm, _window: &mut Window, cx: &mut Context<Self>) {
         if let Some(ix) = self.selected_index {
             if let Some(entry) = self.agent_entries.get(ix) {
@@ -207,10 +219,12 @@ impl ThreadImportModal {
         }
     }
 
-    fn cancel(&mut self, _: &menu::Cancel, _: &mut Window, cx: &mut Context<Self>) {
+    /// 取消弹窗
+    fn cancel(&mut self, _: &menu::Cancel, _window: &mut Window, cx: &mut Context<Self>) {
         cx.emit(DismissEvent);
     }
 
+    /// 导入选中代理的线程
     fn import_threads(
         &mut self,
         _: &menu::SecondaryConfirm,
@@ -229,7 +243,7 @@ impl ThreadImportModal {
 
         let stores = resolve_agent_connection_stores(&multi_workspace, cx);
         if stores.is_empty() {
-            log::error!("Did not find any workspaces to import from");
+            log::error!("未找到可导入的工作空间");
             self.is_importing = false;
             cx.notify();
             return;
@@ -274,9 +288,10 @@ impl ThreadImportModal {
         .detach_and_log_err(cx);
     }
 
+    /// 显示线程导入结果提示
     fn show_imported_threads_toast(&self, imported_count: usize, cx: &mut App) {
         let status_toast = if imported_count == 0 {
-            StatusToast::new("No threads found to import.", cx, |this, _cx| {
+            StatusToast::new("未找到可导入的线程。", cx, |this, _cx| {
                 this.icon(
                     Icon::new(IconName::Info)
                         .size(IconSize::Small)
@@ -286,9 +301,9 @@ impl ThreadImportModal {
             })
         } else {
             let message = if imported_count == 1 {
-                "Imported 1 thread.".to_string()
+                "已导入1个线程。".to_string()
             } else {
-                format!("Imported {imported_count} threads.")
+                format!("已导入{imported_count}个线程。")
             };
             StatusToast::new(message, cx, |this, _cx| {
                 this.icon(
@@ -319,6 +334,7 @@ impl Focusable for ThreadImportModal {
 impl ModalView for ThreadImportModal {}
 
 impl Render for ThreadImportModal {
+    /// 渲染弹窗界面
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let has_agents = !self.agent_entries.is_empty();
         let disabled_import_thread = self.is_importing
@@ -390,10 +406,10 @@ impl Render for ThreadImportModal {
                 Modal::new("import-threads", None)
                     .header(
                         ModalHeader::new()
-                            .headline("Import External Agent Threads")
+                            .headline("导入外部代理线程")
                             .description(
-                                "Import threads from agents like Claude Agent, Codex, and more, whether started in Zed or another client. \
-                                Choose which agents to include, and their threads will appear in your thread history."
+                                "从Claude Agent、Codex等代理导入线程，无论线程是在Zed还是其他客户端中创建的。\
+                                选择需要导入的代理，其线程将显示在你的线程历史中。"
                             )
                             .show_dismiss_button(true),
 
@@ -408,7 +424,7 @@ impl Render for ThreadImportModal {
                                 .when(has_agents, |this| this.children(agent_rows))
                                 .when(!has_agents, |this| {
                                     this.child(
-                                        Label::new("No ACP agents available.")
+                                        Label::new("暂无ACP代理可用。")
                                             .color(Color::Muted)
                                             .size(LabelSize::Small),
                                     )
@@ -426,7 +442,7 @@ impl Render for ThreadImportModal {
                                 )
                             })
                             .end_slot(
-                                Button::new("import-threads", "Import Threads")
+                                Button::new("import-threads", "导入线程")
                                     .loading(self.is_importing)
                                     .disabled(disabled_import_thread)
                                     .key_binding(
@@ -442,6 +458,7 @@ impl Render for ThreadImportModal {
     }
 }
 
+/// 解析代理连接存储
 fn resolve_agent_connection_stores(
     multi_workspace: &Entity<MultiWorkspace>,
     cx: &App,
@@ -453,8 +470,7 @@ fn resolve_agent_connection_stores(
         let workspace = workspace.read(cx);
         let project = workspace.project().read(cx);
 
-        // We only want to include scores from one local workspace, since we
-        // know that they live on the same machine
+        // 仅从一个本地工作空间获取数据，因为它们位于同一台机器上
         let include_store = if project.is_remote() {
             true
         } else if project.is_local() && !included_local_store {
@@ -476,6 +492,7 @@ fn resolve_agent_connection_stores(
     stores
 }
 
+/// 查找可导入的线程
 fn find_threads_to_import(
     agent_ids: Vec<AgentId>,
     existing_sessions: HashSet<acp::SessionId>,
@@ -533,6 +550,7 @@ fn find_threads_to_import(
     })
 }
 
+/// 收集所有会话
 async fn collect_all_sessions(
     agent_id: AgentId,
     remote_connection: Option<RemoteConnectionOptions>,
@@ -561,12 +579,14 @@ async fn collect_all_sessions(
     })
 }
 
+/// 按代理分组的会话数据
 struct SessionByAgent {
     agent_id: AgentId,
     remote_connection: Option<RemoteConnectionOptions>,
     sessions: Vec<acp_thread::AgentSessionInfo>,
 }
 
+/// 收集可导入的线程（去重、过滤无效数据）
 fn collect_importable_threads(
     sessions_by_agent: Vec<SessionByAgent>,
     mut existing_sessions: HashSet<acp::SessionId>,
@@ -602,11 +622,13 @@ fn collect_importable_threads(
     to_insert
 }
 
+/// 从其他频道导入线程
 pub fn import_threads_from_other_channels(_workspace: &mut Workspace, cx: &mut Context<Workspace>) {
     let database_dir = paths::database_dir().clone();
     import_threads_from_other_channels_in(database_dir, cx);
 }
 
+/// 在指定目录中从其他频道导入线程
 fn import_threads_from_other_channels_in(
     database_dir: std::path::PathBuf,
     cx: &mut Context<Workspace>,
@@ -637,7 +659,7 @@ fn import_threads_from_other_channels_in(
                 }
                 Err(error) => {
                     log::warn!(
-                        "Failed to read threads from {} channel database: {}",
+                        "从{}频道数据库读取线程失败：{}",
                         channel.dev_name(),
                         error
                     );
@@ -657,6 +679,7 @@ fn import_threads_from_other_channels_in(
     .detach();
 }
 
+/// 检查指定频道是否存在线程
 fn channel_has_threads(database_dir: &std::path::Path, channel: ReleaseChannel) -> bool {
     let db_path = db::db_path(database_dir, channel);
     if !db_path.exists() {
@@ -670,6 +693,7 @@ fn channel_has_threads(database_dir: &std::path::Path, channel: ReleaseChannel) 
         .unwrap_or(false)
 }
 
+/// 从指定频道读取线程元数据
 fn read_threads_from_channel(
     database_dir: &std::path::Path,
     channel: ReleaseChannel,
@@ -682,21 +706,22 @@ fn read_threads_from_channel(
     crate::thread_metadata_store::list_thread_metadata_from_connection(&connection)
 }
 
+/// 显示跨频道导入结果提示
 fn show_cross_channel_import_toast(
     workspace: &WeakEntity<Workspace>,
     imported_count: usize,
     cx: &mut App,
 ) {
     let status_toast = if imported_count == 0 {
-        StatusToast::new("No new threads found to import.", cx, |this, _cx| {
+        StatusToast::new("未找到可导入的新线程。", cx, |this, _cx| {
             this.icon(Icon::new(IconName::Info).color(Color::Muted))
                 .dismiss_button(true)
         })
     } else {
         let message = if imported_count == 1 {
-            "Imported 1 thread from other channels.".to_string()
+            "从其他频道导入了1个线程。".to_string()
         } else {
-            format!("Imported {imported_count} threads from other channels.")
+            format!("从其他频道导入了{imported_count}个线程。")
         };
         StatusToast::new(message, cx, |this, _cx| {
             this.icon(Icon::new(IconName::Check).color(Color::Success))
@@ -720,6 +745,7 @@ mod tests {
     use std::path::Path;
     use workspace::PathList;
 
+    /// 创建测试会话
     fn make_session(
         session_id: &str,
         title: Option<&str>,
@@ -737,6 +763,7 @@ mod tests {
         }
     }
 
+    /// 测试：跳过已存在的会话
     #[test]
     fn test_collect_skips_sessions_already_in_existing_set() {
         let existing = HashSet::from_iter(vec![acp::SessionId::new("existing-1")]);
@@ -748,12 +775,12 @@ mod tests {
             sessions: vec![
                 make_session(
                     "existing-1",
-                    Some("Already There"),
+                    Some("已存在"),
                     Some(paths.clone()),
                     None,
                     None,
                 ),
-                make_session("new-1", Some("Brand New"), Some(paths), None, None),
+                make_session("new-1", Some("全新线程"), Some(paths), None, None),
             ],
         }];
 
@@ -761,9 +788,10 @@ mod tests {
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].session_id.as_ref().unwrap().0.as_ref(), "new-1");
-        assert_eq!(result[0].display_title(), "Brand New");
+        assert_eq!(result[0].display_title(), "全新线程");
     }
 
+    /// 测试：跳过无工作目录的会话
     #[test]
     fn test_collect_skips_sessions_without_work_dirs() {
         let existing = HashSet::default();
@@ -773,8 +801,8 @@ mod tests {
             agent_id: AgentId::new("agent-a"),
             remote_connection: None,
             sessions: vec![
-                make_session("has-dirs", Some("With Dirs"), Some(paths), None, None),
-                make_session("no-dirs", Some("No Dirs"), None, None, None),
+                make_session("has-dirs", Some("带目录"), Some(paths), None, None),
+                make_session("no-dirs", Some("无目录"), None, None, None),
             ],
         }];
 
@@ -787,6 +815,7 @@ mod tests {
         );
     }
 
+    /// 测试：所有导入的线程标记为已归档
     #[test]
     fn test_collect_marks_all_imported_threads_as_archived() {
         let existing = HashSet::default();
@@ -796,8 +825,8 @@ mod tests {
             agent_id: AgentId::new("agent-a"),
             remote_connection: None,
             sessions: vec![
-                make_session("s1", Some("Thread 1"), Some(paths.clone()), None, None),
-                make_session("s2", Some("Thread 2"), Some(paths), None, None),
+                make_session("s1", Some("线程1"), Some(paths.clone()), None, None),
+                make_session("s2", Some("线程2"), Some(paths), None, None),
             ],
         }];
 
@@ -807,6 +836,7 @@ mod tests {
         assert!(result.iter().all(|t| t.archived));
     }
 
+    /// 测试：为每个会话分配正确的代理ID
     #[test]
     fn test_collect_assigns_correct_agent_id_per_session() {
         let existing = HashSet::default();
@@ -818,7 +848,7 @@ mod tests {
                 remote_connection: None,
                 sessions: vec![make_session(
                     "s1",
-                    Some("From A"),
+                    Some("来自A"),
                     Some(paths.clone()),
                     None,
                     None,
@@ -827,7 +857,7 @@ mod tests {
             SessionByAgent {
                 agent_id: AgentId::new("agent-b"),
                 remote_connection: None,
-                sessions: vec![make_session("s2", Some("From B"), Some(paths), None, None)],
+                sessions: vec![make_session("s2", Some("来自B"), Some(paths), None, None)],
             },
         ];
 
@@ -846,6 +876,7 @@ mod tests {
         assert_eq!(s2.agent_id.as_ref(), "agent-b");
     }
 
+    /// 测试：跨代理去重会话
     #[test]
     fn test_collect_deduplicates_across_agents() {
         let existing = HashSet::default();
@@ -857,7 +888,7 @@ mod tests {
                 remote_connection: None,
                 sessions: vec![make_session(
                     "shared-session",
-                    Some("From A"),
+                    Some("来自A"),
                     Some(paths.clone()),
                     None,
                     None,
@@ -868,7 +899,7 @@ mod tests {
                 remote_connection: None,
                 sessions: vec![make_session(
                     "shared-session",
-                    Some("From B"),
+                    Some("来自B"),
                     Some(paths),
                     None,
                     None,
@@ -886,10 +917,11 @@ mod tests {
         assert_eq!(
             result[0].agent_id.as_ref(),
             "agent-a",
-            "first agent encountered should win"
+            "优先保留第一个遇到的代理"
         );
     }
 
+    /// 测试：全部已存在时返回空列表
     #[test]
     fn test_collect_all_existing_returns_empty() {
         let paths = PathList::new(&[Path::new("/project")]);
@@ -900,8 +932,8 @@ mod tests {
             agent_id: AgentId::new("agent-a"),
             remote_connection: None,
             sessions: vec![
-                make_session("s1", Some("T1"), Some(paths.clone()), None, None),
-                make_session("s2", Some("T2"), Some(paths), None, None),
+                make_session("s1", Some("线程1"), Some(paths.clone()), None, None),
+                make_session("s2", Some("线程2"), Some(paths), None, None),
             ],
         }];
 
@@ -909,6 +941,7 @@ mod tests {
         assert!(result.is_empty());
     }
 
+    /// 创建频道数据库
     fn create_channel_db(
         db_dir: &std::path::Path,
         channel: ReleaseChannel,
@@ -920,6 +953,7 @@ mod tests {
         connection
     }
 
+    /// 插入测试线程
     fn insert_thread(
         connection: &db::sqlez::connection::Connection,
         title: &str,
@@ -938,6 +972,7 @@ mod tests {
         .unwrap();
     }
 
+    /// 测试：频道数据库不存在时返回空
     #[test]
     fn test_returns_empty_when_channel_db_missing() {
         let dir = tempfile::tempdir().unwrap();
@@ -945,13 +980,14 @@ mod tests {
         assert!(threads.is_empty());
     }
 
+    /// 测试：保留归档状态
     #[test]
     fn test_preserves_archived_state() {
         let dir = tempfile::tempdir().unwrap();
         let connection = create_channel_db(dir.path(), ReleaseChannel::Nightly);
 
-        insert_thread(&connection, "Active Thread", "2025-01-15T10:00:00Z", false);
-        insert_thread(&connection, "Archived Thread", "2025-01-15T09:00:00Z", true);
+        insert_thread(&connection, "活跃线程", "2025-01-15T10:00:00Z", false);
+        insert_thread(&connection, "归档线程", "2025-01-15T09:00:00Z", true);
         drop(connection);
 
         let threads = read_threads_from_channel(dir.path(), ReleaseChannel::Nightly).unwrap();
@@ -959,17 +995,18 @@ mod tests {
 
         let active = threads
             .iter()
-            .find(|t| t.display_title().as_ref() == "Active Thread")
+            .find(|t| t.display_title().as_ref() == "活跃线程")
             .unwrap();
         assert!(!active.archived);
 
         let archived = threads
             .iter()
-            .find(|t| t.display_title().as_ref() == "Archived Thread")
+            .find(|t| t.display_title().as_ref() == "归档线程")
             .unwrap();
         assert!(archived.archived);
     }
 
+    /// 初始化测试环境
     fn init_test(cx: &mut TestAppContext) {
         let fs = fs::FakeFs::new(cx.executor());
         cx.update(|cx| {
@@ -983,9 +1020,7 @@ mod tests {
         cx.run_until_parked();
     }
 
-    /// Returns two release channels that are not the current one and not Dev.
-    /// This ensures tests work regardless of which release channel branch
-    /// they run on.
+    /// 返回两个非当前、非开发版的发布频道
     fn foreign_channels(cx: &TestAppContext) -> (ReleaseChannel, ReleaseChannel) {
         let current = cx.update(|cx| ReleaseChannel::global(cx));
         let mut channels = ReleaseChannel::ALL
@@ -995,6 +1030,7 @@ mod tests {
         (channels.next().unwrap(), channels.next().unwrap())
     }
 
+    /// 测试：从其他频道导入线程
     #[gpui::test]
     async fn test_import_threads_from_other_channels(cx: &mut TestAppContext) {
         init_test(cx);
@@ -1004,17 +1040,17 @@ mod tests {
 
         let (channel_a, channel_b) = foreign_channels(cx);
 
-        // Set up databases for two foreign channels.
+        // 为两个外部频道配置数据库
         let db_a = create_channel_db(dir.path(), channel_a);
-        insert_thread(&db_a, "Thread A1", "2025-01-15T10:00:00Z", false);
-        insert_thread(&db_a, "Thread A2", "2025-01-15T11:00:00Z", true);
+        insert_thread(&db_a, "线程A1", "2025-01-15T10:00:00Z", false);
+        insert_thread(&db_a, "线程A2", "2025-01-15T11:00:00Z", true);
         drop(db_a);
 
         let db_b = create_channel_db(dir.path(), channel_b);
-        insert_thread(&db_b, "Thread B1", "2025-01-15T12:00:00Z", false);
+        insert_thread(&db_b, "线程B1", "2025-01-15T12:00:00Z", false);
         drop(db_b);
 
-        // Create a workspace and run the import.
+        // 创建工作空间并执行导入
         let fs = fs::FakeFs::new(cx.executor());
         let project = project::Project::test(fs, [], cx).await;
         let multi_workspace =
@@ -1029,7 +1065,7 @@ mod tests {
         });
         cx.run_until_parked();
 
-        // Verify all three threads were imported into the store.
+        // 验证所有三个线程已导入存储
         cx.update(|cx| {
             let store = ThreadMetadataStore::global(cx);
             let store = store.read(cx);
@@ -1039,25 +1075,26 @@ mod tests {
                 .collect();
 
             assert_eq!(titles.len(), 3);
-            assert!(titles.contains("Thread A1"));
-            assert!(titles.contains("Thread A2"));
-            assert!(titles.contains("Thread B1"));
+            assert!(titles.contains("线程A1"));
+            assert!(titles.contains("线程A2"));
+            assert!(titles.contains("线程B1"));
 
-            // Verify archived state is preserved.
+            // 验证归档状态保留
             let thread_a2 = store
                 .entries()
-                .find(|m| m.display_title().as_ref() == "Thread A2")
+                .find(|m| m.display_title().as_ref() == "线程A2")
                 .unwrap();
             assert!(thread_a2.archived);
 
             let thread_b1 = store
                 .entries()
-                .find(|m| m.display_title().as_ref() == "Thread B1")
+                .find(|m| m.display_title().as_ref() == "线程B1")
                 .unwrap();
             assert!(!thread_b1.archived);
         });
     }
 
+    /// 测试：导入时跳过已存在的线程
     #[gpui::test]
     async fn test_import_skips_already_existing_threads(cx: &mut TestAppContext) {
         init_test(cx);
@@ -1067,27 +1104,27 @@ mod tests {
 
         let (channel_a, _) = foreign_channels(cx);
 
-        // Set up a database for a foreign channel.
+        // 为外部频道配置数据库
         let db_a = create_channel_db(dir.path(), channel_a);
-        insert_thread(&db_a, "Thread A", "2025-01-15T10:00:00Z", false);
-        insert_thread(&db_a, "Thread B", "2025-01-15T11:00:00Z", false);
+        insert_thread(&db_a, "线程A", "2025-01-15T10:00:00Z", false);
+        insert_thread(&db_a, "线程B", "2025-01-15T11:00:00Z", false);
         drop(db_a);
 
-        // Read the threads so we can pre-populate one into the store.
+        // 读取线程并预填充一个到存储
         let foreign_threads = read_threads_from_channel(dir.path(), channel_a).unwrap();
         let thread_a = foreign_threads
             .iter()
-            .find(|t| t.display_title().as_ref() == "Thread A")
+            .find(|t| t.display_title().as_ref() == "线程A")
             .unwrap()
             .clone();
 
-        // Pre-populate Thread A into the store.
+        // 预填充线程A
         cx.update(|cx| {
             ThreadMetadataStore::global(cx).update(cx, |store, cx| store.save(thread_a, cx));
         });
         cx.run_until_parked();
 
-        // Run the import.
+        // 执行导入
         let fs = fs::FakeFs::new(cx.executor());
         let project = project::Project::test(fs, [], cx).await;
         let multi_workspace =
@@ -1102,7 +1139,7 @@ mod tests {
         });
         cx.run_until_parked();
 
-        // Verify only Thread B was added (Thread A already existed).
+        // 验证仅导入了线程B（线程A已存在）
         cx.update(|cx| {
             let store = ThreadMetadataStore::global(cx);
             let store = store.read(cx);
@@ -1112,8 +1149,8 @@ mod tests {
                 .entries()
                 .map(|m| m.display_title().to_string())
                 .collect();
-            assert!(titles.contains("Thread A"));
-            assert!(titles.contains("Thread B"));
+            assert!(titles.contains("线程A"));
+            assert!(titles.contains("线程B"));
         });
     }
 }

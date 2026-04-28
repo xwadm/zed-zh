@@ -327,7 +327,7 @@ impl PickerDelegate for DevContainerPickerDelegate {
                 .border_t_1()
                 .border_color(cx.theme().colors().border_variant)
                 .child(
-                    Button::new("run-action", "Start Dev Container")
+                    Button::new("run-action", "启动 Dev Container")
                         .key_binding(
                             KeyBinding::for_action(&menu::Confirm, cx)
                                 .map(|kb| kb.size(rems_from_px(12.))),
@@ -337,7 +337,7 @@ impl PickerDelegate for DevContainerPickerDelegate {
                         }),
                 )
                 .child(
-                    Button::new("run-action-secondary", "Open devcontainer.json")
+                    Button::new("run-action-secondary", "打开 devcontainer.json")
                         .key_binding(
                             KeyBinding::for_action(&menu::SecondaryConfirm, cx)
                                 .map(|kb| kb.size(rems_from_px(12.))),
@@ -363,7 +363,7 @@ impl EditNicknameState {
             .and_then(|state| state.nickname)
             .filter(|text| !text.is_empty());
         this.editor.update(cx, |this, cx| {
-            this.set_placeholder_text("Add a nickname for this server", window, cx);
+            this.set_placeholder_text("为此服务器添加昵称", window, cx);
             if let Some(starting_text) = starting_text {
                 this.set_text(starting_text, window, cx);
             }
@@ -996,7 +996,7 @@ impl RemoteServerProjects {
             window,
             cx,
         )
-        .prompt_err("Failed to connect", window, cx, |_, _, _| None);
+        .prompt_err("连接失败", window, cx, |_, _, _| None);
 
         let address_editor = editor.clone();
         let creating = cx.spawn_in(window, async move |this, cx| {
@@ -1874,7 +1874,7 @@ impl RemoteServerProjects {
                         log::error!("Failed to start dev container: {:?}", e);
                         cx.prompt(
                             gpui::PromptLevel::Critical,
-                            "Failed to start Dev Container. See logs for details",
+                            "启动 Dev Container 失败。详情请查看日志",
                             Some(&format!("{e}")),
                             &["Ok"],
                         )
@@ -2142,7 +2142,7 @@ impl RemoteServerProjects {
                                         .size(LabelSize::Small),
                                     )
                                     .child(
-                                        Button::new("learn-more", "Learn More")
+                                        Button::new("learn-more", "了解更多")
                                             .label_size(LabelSize::Small)
                                             .end_icon(
                                                 Icon::new(IconName::ArrowUpRight)
@@ -2311,7 +2311,7 @@ impl RemoteServerProjects {
                     PromptLevel::Warning,
                     &prompt_message,
                     None,
-                    &["Yes, remove it", "No, keep it"],
+                    &["是，移除", "不，保留"],
                     cx,
                 );
 
@@ -2848,7 +2848,7 @@ impl RemoteServerProjects {
                     h_flex()
                         .gap_1()
                         .child(
-                            Button::new("open_new_window", "New Window")
+                            Button::new("open_new_window", "新窗口")
                                 .key_binding(KeyBinding::for_action(&menu::SecondaryConfirm, cx))
                                 .on_click(|_, window, cx| {
                                     window.dispatch_action(menu::SecondaryConfirm.boxed_clone(), cx)

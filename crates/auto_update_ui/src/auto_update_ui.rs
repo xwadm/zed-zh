@@ -246,7 +246,7 @@ fn announcement_for_version(version: &Version, cx: &App) -> Option<AnnouncementC
                             if !already_agent_layout {
                                 if let Some(workspace) = Workspace::for_window(window, cx) {
                                     let toast = StatusToast::new(
-                                        "You are in the new agentic layout!",
+                                        "你正在使用新的 Agent 布局！",
                                         cx,
                                         move |this, _cx| {
                                             this.icon(
@@ -254,7 +254,7 @@ fn announcement_for_version(version: &Version, cx: &App) -> Option<AnnouncementC
                                                     .size(IconSize::Small)
                                                     .color(Color::Success),
                                             )
-                                            .action("Revert", move |_window, cx| {
+                                            .action("恢复", move |_window, cx| {
                                                 let _ = AgentSettings::set_layout(
                                                     get_layout.clone(),
                                                     revert_fs.clone(),

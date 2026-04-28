@@ -28,33 +28,42 @@ pub use open_ai::completion::{
     OpenAiEventMapper, OpenAiResponseEventMapper, into_open_ai, into_open_ai_response,
 };
 
+/// 服务提供商ID
 const PROVIDER_ID: LanguageModelProviderId = OPEN_AI_PROVIDER_ID;
+/// 服务提供商名称
 const PROVIDER_NAME: LanguageModelProviderName = OPEN_AI_PROVIDER_NAME;
 
+/// API密钥环境变量名称
 const API_KEY_ENV_VAR_NAME: &str = "OPENAI_API_KEY";
+/// API密钥环境变量
 static API_KEY_ENV_VAR: LazyLock<EnvVar> = env_var!(API_KEY_ENV_VAR_NAME);
 
+/// OpenAI配置设置
 #[derive(Default, Clone, Debug, PartialEq)]
 pub struct OpenAiSettings {
     pub api_url: String,
     pub available_models: Vec<AvailableModel>,
 }
 
+/// OpenAI语言模型服务提供商
 pub struct OpenAiLanguageModelProvider {
     http_client: Arc<dyn HttpClient>,
     state: Entity<State>,
 }
 
+/// 服务状态
 pub struct State {
     api_key_state: ApiKeyState,
     credentials_provider: Arc<dyn CredentialsProvider>,
 }
 
 impl State {
+    /// 是否已完成认证
     fn is_authenticated(&self) -> bool {
         self.api_key_state.has_key()
     }
 
+    /// 设置API密钥并持久化存储
     fn set_api_key(&mut self, api_key: Option<String>, cx: &mut Context<Self>) -> Task<Result<()>> {
         let credentials_provider = self.credentials_provider.clone();
         let api_url = OpenAiLanguageModelProvider::api_url(cx);
@@ -67,6 +76,7 @@ impl State {
         )
     }
 
+    /// 执行认证操作
     fn authenticate(&mut self, cx: &mut Context<Self>) -> Task<Result<(), AuthenticateError>> {
         let credentials_provider = self.credentials_provider.clone();
         let api_url = OpenAiLanguageModelProvider::api_url(cx);
@@ -80,6 +90,7 @@ impl State {
 }
 
 impl OpenAiLanguageModelProvider {
+    /// 创建OpenAI服务提供商实例
     pub fn new(
         http_client: Arc<dyn HttpClient>,
         credentials_provider: Arc<dyn CredentialsProvider>,
@@ -107,6 +118,7 @@ impl OpenAiLanguageModelProvider {
         Self { http_client, state }
     }
 
+    /// 创建语言模型实例
     fn create_language_model(&self, model: open_ai::Model) -> Arc<dyn LanguageModel> {
         Arc::new(OpenAiLanguageModel {
             id: LanguageModelId::from(model.id().to_string()),
@@ -117,10 +129,12 @@ impl OpenAiLanguageModelProvider {
         })
     }
 
+    /// 获取全局OpenAI设置
     fn settings(cx: &App) -> &OpenAiSettings {
         &crate::AllLanguageModelSettings::get_global(cx).openai
     }
 
+    /// 获取API地址（优先使用配置，默认官方地址）
     fn api_url(cx: &App) -> SharedString {
         let api_url = &Self::settings(cx).api_url;
         if api_url.is_empty() {
@@ -160,17 +174,18 @@ impl LanguageModelProvider for OpenAiLanguageModelProvider {
         Some(self.create_language_model(open_ai::Model::default_fast()))
     }
 
+    /// 获取所有支持的模型
     fn provided_models(&self, cx: &App) -> Vec<Arc<dyn LanguageModel>> {
         let mut models = BTreeMap::default();
 
-        // Add base models from open_ai::Model::iter()
+        // 添加基础模型
         for model in open_ai::Model::iter() {
             if !matches!(model, open_ai::Model::Custom { .. }) {
                 models.insert(model.id().to_string(), model);
             }
         }
 
-        // Override with available models from settings
+        // 使用配置中的可用模型覆盖
         for model in &OpenAiLanguageModelProvider::settings(cx).available_models {
             models.insert(
                 model.name.clone(),
@@ -200,6 +215,7 @@ impl LanguageModelProvider for OpenAiLanguageModelProvider {
         self.state.update(cx, |state, cx| state.authenticate(cx))
     }
 
+    /// 渲染配置视图
     fn configuration_view(
         &self,
         _target_agent: language_model::ConfigurationViewTargetAgent,
@@ -210,12 +226,14 @@ impl LanguageModelProvider for OpenAiLanguageModelProvider {
             .into()
     }
 
+    /// 重置凭证
     fn reset_credentials(&self, cx: &mut App) -> Task<Result<()>> {
         self.state
             .update(cx, |state, cx| state.set_api_key(None, cx))
     }
 }
 
+/// OpenAI语言模型实现
 pub struct OpenAiLanguageModel {
     id: LanguageModelId,
     model: open_ai::Model,
@@ -225,6 +243,7 @@ pub struct OpenAiLanguageModel {
 }
 
 impl OpenAiLanguageModel {
+    /// 流式请求补全接口
     fn stream_completion(
         &self,
         request: open_ai::Request,
@@ -257,6 +276,7 @@ impl OpenAiLanguageModel {
         async move { Ok(future.await?.boxed()) }.boxed()
     }
 
+    /// 流式响应接口
     fn stream_response(
         &self,
         request: ResponseRequest,
@@ -311,6 +331,7 @@ impl LanguageModel for OpenAiLanguageModel {
         true
     }
 
+    /// 是否支持图片输入
     fn supports_images(&self) -> bool {
         use open_ai::Model;
         match &self.model {
@@ -348,6 +369,7 @@ impl LanguageModel for OpenAiLanguageModel {
         true
     }
 
+    /// 是否支持思考过程输出
     fn supports_thinking(&self) -> bool {
         self.model.reasoning_effort().is_some()
     }
@@ -368,6 +390,7 @@ impl LanguageModel for OpenAiLanguageModel {
         self.model.max_output_tokens()
     }
 
+    /// 流式补全请求入口
     fn stream_completion(
         &self,
         request: LanguageModelRequest,
@@ -417,6 +440,7 @@ impl LanguageModel for OpenAiLanguageModel {
     }
 }
 
+/// 配置视图组件
 struct ConfigurationView {
     api_key_editor: Entity<InputField>,
     state: Entity<State>,
@@ -424,6 +448,7 @@ struct ConfigurationView {
 }
 
 impl ConfigurationView {
+    /// 创建配置视图
     fn new(state: Entity<State>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let api_key_editor = cx.new(|cx| {
             InputField::new(
@@ -442,7 +467,7 @@ impl ConfigurationView {
             let state = state.clone();
             async move |this, cx| {
                 if let Some(task) = Some(state.update(cx, |state, cx| state.authenticate(cx))) {
-                    // We don't log an error, because "not signed in" is also an error.
+                    // 不记录错误，因为"未登录"也属于正常错误
                     let _ = task.await;
                 }
                 this.update(cx, |this, cx| {
@@ -460,13 +485,14 @@ impl ConfigurationView {
         }
     }
 
+    /// 保存API密钥
     fn save_api_key(&mut self, _: &menu::Confirm, window: &mut Window, cx: &mut Context<Self>) {
         let api_key = self.api_key_editor.read(cx).text(cx).trim().to_string();
         if api_key.is_empty() {
             return;
         }
 
-        // url changes can cause the editor to be displayed again
+        // 清空输入框
         self.api_key_editor
             .update(cx, |editor, cx| editor.set_text("", window, cx));
 
@@ -479,6 +505,7 @@ impl ConfigurationView {
         .detach_and_log_err(cx);
     }
 
+    /// 重置API密钥
     fn reset_api_key(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.api_key_editor
             .update(cx, |input, cx| input.set_text("", window, cx));
@@ -492,6 +519,7 @@ impl ConfigurationView {
         .detach_and_log_err(cx);
     }
 
+    /// 是否需要渲染密钥输入框
     fn should_render_editor(&self, cx: &mut Context<Self>) -> bool {
         !self.state.read(cx).is_authenticated()
     }
@@ -501,45 +529,46 @@ impl Render for ConfigurationView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let env_var_set = self.state.read(cx).api_key_state.is_from_env_var();
         let configured_card_label = if env_var_set {
-            format!("API key set in {API_KEY_ENV_VAR_NAME} environment variable")
+            format!("API密钥已在环境变量 {API_KEY_ENV_VAR_NAME} 中设置")
         } else {
             let api_url = OpenAiLanguageModelProvider::api_url(cx);
             if api_url == OPEN_AI_API_URL {
-                "API key configured".to_string()
+                "API密钥已配置".to_string()
             } else {
-                format!("API key configured for {}", api_url)
+                format!("API密钥已为 {} 配置", api_url)
             }
         };
 
         let api_key_section = if self.should_render_editor(cx) {
             v_flex()
                 .on_action(cx.listener(Self::save_api_key))
-                .child(Label::new("To use Zed's agent with OpenAI, you need to add an API key. Follow these steps:"))
+                .child(Label::new("要将Zed的智能助手与OpenAI配合使用，你需要添加API密钥。请按以下步骤操作："))
                 .child(
                     List::new()
                         .child(
                             ListBulletItem::new("")
-                                .child(Label::new("Create one by visiting"))
-                                .child(ButtonLink::new("OpenAI's console", "https://platform.openai.com/api-keys"))
+                                .child(Label::new("前往"))
+                                .child(ButtonLink::new("OpenAI控制台", "https://platform.openai.com/api-keys"))
+                                .child(Label::new("创建密钥"))
                         )
                         .child(
-                            ListBulletItem::new("Ensure your OpenAI account has credits")
+                            ListBulletItem::new("确保你的OpenAI账户有可用余额")
                         )
                         .child(
-                            ListBulletItem::new("Paste your API key below and hit enter to start using the agent")
+                            ListBulletItem::new("粘贴API密钥并按回车，即可开始使用智能助手")
                         ),
                 )
                 .child(self.api_key_editor.clone())
                 .child(
                     Label::new(format!(
-                        "You can also set the {API_KEY_ENV_VAR_NAME} environment variable and restart Zed."
+                        "你也可以设置 {API_KEY_ENV_VAR_NAME} 环境变量，然后重启Zed。"
                     ))
                     .size(LabelSize::Small)
                     .color(Color::Muted),
                 )
                 .child(
                     Label::new(
-                        "Note that having a subscription for another service like GitHub Copilot won't work.",
+                        "注意：其他服务（如GitHub Copilot）的订阅无法用于OpenAI。",
                     )
                     .size(LabelSize::Small).color(Color::Muted),
                 )
@@ -549,7 +578,7 @@ impl Render for ConfigurationView {
                 .disabled(env_var_set)
                 .on_click(cx.listener(|this, _, window, cx| this.reset_api_key(window, cx)))
                 .when(env_var_set, |this| {
-                    this.tooltip_label(format!("To reset your API key, unset the {API_KEY_ENV_VAR_NAME} environment variable."))
+                    this.tooltip_label(format!("要重置API密钥，请取消设置 {API_KEY_ENV_VAR_NAME} 环境变量。"))
                 })
                 .into_any_element()
         };
@@ -571,10 +600,10 @@ impl Render for ConfigurationView {
                             .size(IconSize::XSmall)
                             .color(Color::Muted),
                     )
-                    .child(Label::new("Zed also supports OpenAI-compatible models.")),
+                    .child(Label::new("Zed同时支持OpenAI兼容的模型。")),
             )
             .child(
-                Button::new("docs", "Learn More")
+                Button::new("docs", "了解更多")
                     .end_icon(
                         Icon::new(IconName::ArrowUpRight)
                             .size(IconSize::Small)
@@ -586,7 +615,7 @@ impl Render for ConfigurationView {
             );
 
         if self.load_credentials_task.is_some() {
-            div().child(Label::new("Loading credentials…")).into_any()
+            div().child(Label::new("正在加载凭证…")).into_any()
         } else {
             v_flex()
                 .size_full()

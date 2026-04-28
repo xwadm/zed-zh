@@ -60,7 +60,7 @@ impl EncodingSelector {
             workspace.show_toast(
                 Toast::new(
                     NotificationId::unique::<EncodingSelector>(),
-                    "Save file to change encoding",
+                    "保存文件以更改编码",
                 ),
                 cx,
             );
@@ -70,7 +70,7 @@ impl EncodingSelector {
             workspace.show_toast(
                 Toast::new(
                     NotificationId::unique::<EncodingSelector>(),
-                    "Cannot change encoding during collaboration",
+                    "协作期间无法更改编码",
                 ),
                 cx,
             );
@@ -80,7 +80,7 @@ impl EncodingSelector {
             workspace.show_toast(
                 Toast::new(
                     NotificationId::unique::<EncodingSelector>(),
-                    "Cannot change encoding of remote server file",
+                    "无法更改远程服务器文件的编码",
                 ),
                 cx,
             );

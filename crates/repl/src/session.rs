@@ -25,7 +25,7 @@ use editor::{
 };
 use project::InlayId;
 
-/// Marker types
+/// 标记类型
 enum ReplExecutedRange {}
 
 use futures::FutureExt as _;
@@ -44,6 +44,7 @@ use theme::ActiveTheme;
 use ui::{IconButtonShape, Tooltip, prelude::*};
 use util::ResultExt as _;
 
+/// REPL会话实体
 pub struct Session {
     fs: Arc<dyn Fs>,
     editor: WeakEntity<Editor>,
@@ -57,6 +58,7 @@ pub struct Session {
     _subscriptions: Vec<Subscription>,
 }
 
+/// 编辑器输出块
 struct EditorBlock {
     code_range: Range<Anchor>,
     invalidation_anchor: Anchor,
@@ -64,10 +66,12 @@ struct EditorBlock {
     execution_view: Entity<ExecutionView>,
 }
 
+/// 关闭输出块的回调函数类型
 type CloseBlockFn =
     Arc<dyn for<'a> Fn(CustomBlockId, &'a mut Window, &mut App) + Send + Sync + 'static>;
 
 impl EditorBlock {
+    /// 创建新的编辑器输出块
     fn new(
         editor: WeakEntity<Editor>,
         code_range: Range<Anchor>,
@@ -75,8 +79,8 @@ impl EditorBlock {
         on_close: CloseBlockFn,
         cx: &mut Context<Session>,
     ) -> anyhow::Result<Self> {
-        let editor = editor.upgrade().context("editor is not open")?;
-        let workspace = editor.read(cx).workspace().context("workspace dropped")?;
+        let editor = editor.upgrade().context("编辑器未打开")?;
+        let workspace = editor.read(cx).workspace().context("工作区已释放")?;
 
         let execution_view = cx.new(|cx| ExecutionView::new(status, workspace.downgrade(), cx));
 
@@ -98,15 +102,14 @@ impl EditorBlock {
                 });
             }
 
-            // Re-read snapshot after potential buffer edit and create a fresh anchor for
-            // block placement. Using anchor_before (Bias::Left) ensures the anchor stays
-            // at the end of the code line regardless of whether we inserted a newline.
+            // 缓冲区编辑后重新读取快照，创建新的锚点用于块放置
+            // 使用左侧锚点确保无论是否插入换行，锚点都保持在代码行末尾
             let buffer_snapshot = buffer.read(cx).snapshot(cx);
             let block_placement_anchor = buffer_snapshot.anchor_before(end_point);
             let invalidation_anchor = buffer_snapshot.anchor_before(next_row_start);
             let block = BlockProperties {
                 placement: BlockPlacement::Below(block_placement_anchor),
-                // Take up at least one height for status, allow the editor to determine the real height based on the content from render
+                // 状态至少占用一行高度，允许编辑器根据渲染内容计算实际高度
                 height: Some(1),
                 style: BlockStyle::Sticky,
                 render: Self::create_output_area_renderer(execution_view.clone(), on_close.clone()),
@@ -125,6 +128,7 @@ impl EditorBlock {
         })
     }
 
+    /// 处理内核消息
     fn handle_message(
         &mut self,
         message: &JupyterMessage,
@@ -140,6 +144,7 @@ impl EditorBlock {
         });
     }
 
+    /// 创建输出区域渲染器
     fn create_output_area_renderer(
         execution_view: Entity<ExecutionView>,
         on_close: CloseBlockFn,
@@ -171,8 +176,7 @@ impl EditorBlock {
                 .absolute()
                 .top(text_line_height / 2.)
                 .right(
-                    // 2px is a magic number to nudge the button just a bit closer to
-                    // the line number start
+                    // 2px为微调值，让按钮更靠近行号起始位置
                     gutter.full_width() / 2.0 - text_line_height / 2.0 - px(2.),
                 )
                 .w(text_line_height)
@@ -183,7 +187,7 @@ impl EditorBlock {
                         .icon_color(Color::Muted)
                         .size(ButtonSize::Compact)
                         .shape(IconButtonShape::Square)
-                        .tooltip(Tooltip::text("Close output area"))
+                        .tooltip(Tooltip::text("关闭输出区域"))
                         .on_click(move |_, window, cx| {
                             if let BlockId::Custom(block_id) = block_id {
                                 (on_close)(block_id, window, cx)
@@ -227,6 +231,7 @@ impl EditorBlock {
 }
 
 impl Session {
+    /// 创建新的REPL会话
     pub fn new(
         editor: WeakEntity<Editor>,
         fs: Arc<dyn Fs>,
@@ -265,20 +270,19 @@ impl Session {
         session
     }
 
+    /// 启动内核
     fn start_kernel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let kernel_language = self.kernel_specification.language();
         let entity_id = self.editor.entity_id();
 
-        // For WSL Remote kernels, use project root instead of potentially temporary working directory
-        // which causes .venv/bin/python checks to fail
+        // 对于WSL/SSH远程内核，使用项目根目录而非临时工作目录
+        // 避免.venv/bin/python检查失败
         let is_remote_execution = matches!(
             self.kernel_specification,
             crate::KernelSpecification::WslRemote(_) | crate::KernelSpecification::SshRemote(_)
         );
 
         let working_directory = if is_remote_execution {
-            // For WSL Remote kernels, use project root instead of potentially temporary working directory
-            // which causes .venv/bin/python checks to fail
             self.editor
                 .upgrade()
                 .and_then(|editor| editor.read(cx).project().cloned())
@@ -349,7 +353,7 @@ impl Session {
                         cx,
                     )
                 } else {
-                    Task::ready(Err(anyhow::anyhow!("No project associated with editor")))
+                    Task::ready(Err(anyhow::anyhow!("编辑器未关联任何项目")))
                 }
             }
             KernelSpecification::WslRemote(spec) => WslRunningKernel::new(
@@ -391,6 +395,7 @@ impl Session {
         cx.notify();
     }
 
+    /// 内核启动失败处理
     pub fn kernel_errored(&mut self, error_message: String, cx: &mut Context<Self>) {
         self.kernel(Kernel::ErroredLaunch(error_message.clone()), cx);
 
@@ -398,10 +403,10 @@ impl Session {
             block.execution_view.update(cx, |execution_view, cx| {
                 match execution_view.status {
                     ExecutionStatus::Finished => {
-                        // Do nothing when the output was good
+                        // 执行成功时不做处理
                     }
                     _ => {
-                        // All other cases, set the status to errored
+                        // 其他状态统一设置为内核错误
                         execution_view.status =
                             ExecutionStatus::KernelErrored(error_message.clone())
                     }
@@ -411,6 +416,7 @@ impl Session {
         });
     }
 
+    /// 缓冲区事件监听
     fn on_buffer_event(
         &mut self,
         buffer: Entity<MultiBuffer>,
@@ -478,6 +484,7 @@ impl Session {
         }
     }
 
+    /// 发送消息到内核
     fn send(&mut self, message: JupyterMessage, _cx: &mut Context<Self>) -> anyhow::Result<()> {
         if let Kernel::RunningKernel(kernel) = &mut self.kernel {
             kernel.request_tx().try_send(message).ok();
@@ -486,6 +493,7 @@ impl Session {
         anyhow::Ok(())
     }
 
+    /// 发送标准输入回复
     fn send_stdin_reply(
         &mut self,
         value: String,
@@ -503,6 +511,7 @@ impl Session {
         }
     }
 
+    /// 将输出块替换为内嵌结果
     fn replace_block_with_inlay(&mut self, message_id: &str, text: &str, cx: &mut Context<Self>) {
         let Some(block) = self.blocks.remove(message_id) else {
             return;
@@ -552,6 +561,7 @@ impl Session {
         cx.notify();
     }
 
+    /// 清空所有输出
     pub fn clear_outputs(&mut self, cx: &mut Context<Self>) {
         let blocks_to_remove: HashSet<CustomBlockId> =
             self.blocks.values().map(|block| block.block_id).collect();
@@ -571,6 +581,7 @@ impl Session {
         self.result_inlays.clear();
     }
 
+    /// 清空指定位置的输出
     pub fn clear_output_at_position(&mut self, position: Anchor, cx: &mut Context<Self>) {
         let Some(editor) = self.editor.upgrade() else {
             return;
@@ -616,6 +627,7 @@ impl Session {
         cx.notify();
     }
 
+    /// 执行代码
     pub fn execute(
         &mut self,
         code: String,
@@ -777,7 +789,7 @@ impl Session {
                 self.send(message, cx).ok();
             }
             Kernel::StartingKernel(task) => {
-                // Queue up the execution as a task to run after the kernel starts
+                // 内核启动完成后执行队列中的代码
                 let task = task.clone();
 
                 cx.spawn(async move |this, cx| {
@@ -806,18 +818,20 @@ impl Session {
         }
     }
 
+    /// 中断内核执行
     pub fn interrupt(&mut self, cx: &mut Context<Self>) {
         match &mut self.kernel {
             Kernel::RunningKernel(_kernel) => {
                 self.send(InterruptRequest {}.into(), cx).ok();
             }
             Kernel::StartingKernel(_task) => {
-                // NOTE: If we switch to a literal queue instead of chaining on to the task, clear all queued executions
+                // 若使用队列而非任务链，需清空队列中的待执行代码
             }
             _ => {}
         }
     }
 
+    /// 设置内核状态
     pub fn kernel(&mut self, kernel: Kernel, cx: &mut Context<Self>) {
         if let Kernel::Shutdown = kernel {
             cx.emit(SessionEvent::Shutdown(self.editor.clone()));
@@ -836,6 +850,7 @@ impl Session {
         self.kernel = kernel;
     }
 
+    /// 关闭内核会话
     pub fn shutdown(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let kernel = std::mem::replace(&mut self.kernel, Kernel::ShuttingDown);
 
@@ -851,7 +866,7 @@ impl Session {
 
                     forced.await.log_err();
 
-                    // Give the kernel a bit of time to clean up
+                    // 等待内核完成清理
                     cx.background_executor().timer(Duration::from_secs(3)).await;
 
                     this.update(cx, |session, cx| {
@@ -870,12 +885,13 @@ impl Session {
         cx.notify();
     }
 
+    /// 重启内核
     pub fn restart(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let kernel = std::mem::replace(&mut self.kernel, Kernel::Restarting);
 
         match kernel {
             Kernel::Restarting => {
-                // Do nothing if already restarting
+                // 已在重启中，不做处理
             }
             Kernel::RunningKernel(mut kernel) => {
                 let mut request_tx = kernel.request_tx();
@@ -883,20 +899,20 @@ impl Session {
                 let forced = kernel.force_shutdown(window, cx);
 
                 cx.spawn_in(window, async move |this, cx| {
-                    // Send shutdown request with restart flag
-                    log::debug!("restarting kernel");
+                    // 发送带重启标记的关闭请求
+                    log::debug!("重启内核");
                     let message: JupyterMessage = ShutdownRequest { restart: true }.into();
                     request_tx.try_send(message).ok();
 
-                    // Wait for kernel to shutdown
+                    // 等待内核关闭
                     cx.background_executor().timer(Duration::from_secs(1)).await;
 
-                    // Force kill the kernel if it hasn't shut down
+                    // 强制终止未正常关闭的内核
                     forced.await.log_err();
 
-                    // Start a new kernel
+                    // 启动新内核
                     this.update_in(cx, |session, window, cx| {
-                        // TODO: Differentiate between restart and restart+clear-outputs
+                        // 重启时清空输出
                         session.clear_outputs(cx);
                         session.start_kernel(window, cx);
                     })
@@ -913,12 +929,14 @@ impl Session {
     }
 }
 
+/// 会话事件
 pub enum SessionEvent {
     Shutdown(WeakEntity<Editor>),
 }
 
 impl EventEmitter<SessionEvent> for Session {}
 
+/// 会话渲染
 impl Render for Session {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let (status_text, interrupt_button) = match &self.kernel {
@@ -928,18 +946,18 @@ impl Render for Session {
                     .as_ref()
                     .map(|info| info.language_info.name.clone()),
                 Some(
-                    Button::new("interrupt", "Interrupt")
+                    Button::new("interrupt", "中断")
                         .style(ButtonStyle::Subtle)
                         .on_click(cx.listener(move |session, _, _, cx| {
                             session.interrupt(cx);
                         })),
                 ),
             ),
-            Kernel::StartingKernel(_) => (Some("Starting".into()), None),
-            Kernel::ErroredLaunch(err) => (Some(format!("Error: {err}")), None),
-            Kernel::ShuttingDown => (Some("Shutting Down".into()), None),
-            Kernel::Shutdown => (Some("Shutdown".into()), None),
-            Kernel::Restarting => (Some("Restarting".into()), None),
+            Kernel::StartingKernel(_) => (Some("启动中".into()), None),
+            Kernel::ErroredLaunch(err) => (Some(format!("错误：{err}")), None),
+            Kernel::ShuttingDown => (Some("关闭中".into()), None),
+            Kernel::Shutdown => (Some("已关闭".into()), None),
+            Kernel::Restarting => (Some("重启中".into()), None),
         };
 
         KernelListItem::new(self.kernel_specification.clone())
@@ -964,7 +982,7 @@ impl Render for Session {
             .child(Label::new(self.kernel_specification.name()))
             .children(status_text.map(|status_text| Label::new(format!("({status_text})"))))
             .button(
-                Button::new("shutdown", "Shutdown")
+                Button::new("shutdown", "关闭")
                     .style(ButtonStyle::Subtle)
                     .disabled(self.kernel.is_shutting_down())
                     .on_click(cx.listener(move |session, _, window, cx| {
@@ -976,6 +994,7 @@ impl Render for Session {
 }
 
 impl KernelSession for Session {
+    /// 路由内核消息
     fn route(&mut self, message: &JupyterMessage, window: &mut Window, cx: &mut Context<Self>) {
         let parent_message_id = match message.parent_header.as_ref() {
             Some(header) => &header.msg_id,
@@ -1021,6 +1040,7 @@ impl KernelSession for Session {
         }
     }
 
+    /// 内核错误处理
     fn kernel_errored(&mut self, error_message: String, cx: &mut Context<Self>) {
         self.kernel_errored(error_message, cx);
     }

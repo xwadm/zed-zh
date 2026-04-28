@@ -6583,7 +6583,7 @@ pub(crate) fn show_error_toast(
         cx.defer(move |cx| {
             workspace.update(cx, |workspace, cx| {
                 let workspace_weak = cx.weak_entity();
-                let toast = StatusToast::new(format!("git {} failed", action), cx, |this, _cx| {
+                let toast = StatusToast::new(format!("git {} 失败", action), cx, |this, _cx| {
                     this.icon(
                         Icon::new(IconName::XCircle)
                             .size(IconSize::Small)

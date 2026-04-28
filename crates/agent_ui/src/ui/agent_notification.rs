@@ -7,6 +7,7 @@ use release_channel::ReleaseChannel;
 use std::rc::Rc;
 use ui::{Render, prelude::*};
 
+/// AI 助手通知组件，用于展示来自 Agent 的通知提醒
 pub struct AgentNotification {
     title: SharedString,
     caption: SharedString,
@@ -15,6 +16,11 @@ pub struct AgentNotification {
 }
 
 impl AgentNotification {
+    /// 创建新的 AI 助手通知
+    /// - title: 通知标题
+    /// - caption: 通知描述
+    /// - icon: 通知图标
+    /// - project_name: 可选的项目名称
     pub fn new(
         title: impl Into<SharedString>,
         caption: impl Into<SharedString>,
@@ -29,15 +35,18 @@ impl AgentNotification {
         }
     }
 
+    /// 生成通知窗口的配置选项（显示在屏幕右上角）
     pub fn window_options(screen: Rc<dyn PlatformDisplay>, cx: &App) -> WindowOptions {
         let size = Size {
             width: px(450.),
             height: px(72.),
         };
 
+        // 通知窗口边距
         let notification_margin_width = px(16.);
         let notification_margin_height = px(-48.);
 
+        // 计算窗口位置：屏幕右上角
         let bounds = gpui::Bounds::<Pixels> {
             origin: screen.bounds().top_right()
                 - point(
@@ -49,6 +58,7 @@ impl AgentNotification {
 
         let app_id = ReleaseChannel::global(cx).app_id();
 
+        // 窗口配置：无焦点、弹出式、透明背景、固定位置
         WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
             titlebar: None,
@@ -67,6 +77,7 @@ impl AgentNotification {
     }
 }
 
+/// 通知事件：用户接受 / 关闭通知
 pub enum AgentNotificationEvent {
     Accepted,
     Dismissed,
@@ -75,10 +86,12 @@ pub enum AgentNotificationEvent {
 impl EventEmitter<AgentNotificationEvent> for AgentNotification {}
 
 impl AgentNotification {
+    /// 处理接受通知事件
     pub fn accept(&mut self, cx: &mut Context<Self>) {
         cx.emit(AgentNotificationEvent::Accepted);
     }
 
+    /// 处理关闭通知事件
     pub fn dismiss(&mut self, cx: &mut Context<Self>) {
         cx.emit(AgentNotificationEvent::Dismissed);
     }
@@ -90,6 +103,8 @@ impl Render for AgentNotification {
         let line_height = window.line_height();
 
         let bg = cx.theme().colors().elevated_surface_background;
+        
+        // 右侧渐变遮罩，防止文字溢出突兀
         let gradient_overflow = || {
             div()
                 .h_full()
@@ -104,6 +119,7 @@ impl Render for AgentNotification {
                 ))
         };
 
+        // 主容器：卡片样式、圆角、阴影
         h_flex()
             .id("agent-notification")
             .size_full()
@@ -115,11 +131,13 @@ impl Render for AgentNotification {
             .font(ui_font)
             .border_color(cx.theme().colors().border)
             .rounded_xl()
+            // 左侧：图标 + 标题 + 描述 + 项目名
             .child(
                 h_flex()
                     .items_start()
                     .gap_2()
                     .flex_1()
+                    // 通知图标
                     .child(
                         h_flex().h(line_height).justify_center().child(
                             Icon::new(self.icon)
@@ -127,10 +145,12 @@ impl Render for AgentNotification {
                                 .size(IconSize::Small),
                         ),
                     )
+                    // 文本内容区域
                     .child(
                         v_flex()
                             .flex_1()
                             .max_w(px(300.))
+                            // 标题（截断 + 渐变遮罩）
                             .child(
                                 div()
                                     .relative()
@@ -140,6 +160,7 @@ impl Render for AgentNotification {
                                     .child(self.title.clone())
                                     .child(gradient_overflow()),
                             )
+                            // 描述行：项目名（可选）+ 描述文本
                             .child(
                                 h_flex()
                                     .relative()
@@ -174,12 +195,13 @@ impl Render for AgentNotification {
                             ),
                     ),
             )
+            // 右侧：操作按钮（查看 + 关闭）
             .child(
                 v_flex()
                     .gap_1()
                     .items_center()
                     .child(
-                        Button::new("open", "View")
+                        Button::new("open", "查看")
                             .style(ButtonStyle::Tinted(ui::TintColor::Accent))
                             .full_width()
                             .on_click({
@@ -188,7 +210,7 @@ impl Render for AgentNotification {
                                 })
                             }),
                     )
-                    .child(Button::new("dismiss", "Dismiss").full_width().on_click({
+                    .child(Button::new("dismiss", "关闭").full_width().on_click({
                         cx.listener(move |this, _event, _, cx| {
                             this.dismiss(cx);
                         })

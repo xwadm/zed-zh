@@ -107,7 +107,7 @@ pub(crate) struct LogMenuItem {
 actions!(
     dev,
     [
-        /// Opens the language server protocol logs viewer.
+        /// 打开语言服务器协议日志查看器。
         OpenLanguageServerLogs
     ]
 );
@@ -288,18 +288,18 @@ impl LspLogView {
         cx: &mut Context<Self>,
     ) -> (Entity<Editor>, Vec<Subscription>) {
         let server_info = format!(
-            "* Server: {NAME} (id {ID})
+            "* 服务器: {NAME} (id {ID})
 
-* Version: {VERSION}
+* 版本: {VERSION}
 
-* Binary: {BINARY}
+* 二进制文件: {BINARY}
 
-* Registered workspace folders:
+* 已注册的工作区文件夹:
 {WORKSPACE_FOLDERS}
 
-* Capabilities: {CAPABILITIES}
+* 能力: {CAPABILITIES}
 
-* Configuration: {CONFIGURATION}",
+* 配置: {CONFIGURATION}",
             NAME = info.status.name,
             ID = info.id,
             VERSION = info
@@ -307,12 +307,12 @@ impl LspLogView {
                 .server_version
                 .as_ref()
                 .map(|version| version.as_ref())
-                .unwrap_or("Unknown"),
+                .unwrap_or("未知"),
             BINARY = info
                 .status
                 .binary
                 .as_ref()
-                .map_or_else(|| "Unknown".to_string(), |binary| format!("{:#?}", binary)),
+                .map_or_else(|| "未知".to_string(), |binary| format!("{:#?}", binary)),
             WORKSPACE_FOLDERS = info
                 .status
                 .workspace_folders
@@ -321,14 +321,14 @@ impl LspLogView {
                 .map(|path| path.to_string_lossy().into_owned())
                 .join(", "),
             CAPABILITIES = serde_json::to_string_pretty(&info.capabilities)
-                .unwrap_or_else(|e| format!("Failed to serialize capabilities: {e}")),
+                .unwrap_or_else(|e| format!("序列化服务器能力失败: {e}")),
             CONFIGURATION = info
                 .status
                 .configuration
                 .map(|configuration| serde_json::to_string_pretty(&configuration))
                 .transpose()
-                .unwrap_or_else(|e| Some(format!("Failed to serialize configuration: {e}")))
-                .unwrap_or_else(|| "Unknown".to_string()),
+                .unwrap_or_else(|e| Some(format!("序列化配置失败: {e}")))
+                .unwrap_or_else(|| "未知".to_string()),
         );
         let editor = initialize_new_editor(server_info, false, window, cx);
         let editor_subscription = cx.subscribe(
@@ -384,7 +384,7 @@ impl LspLogView {
         self.try_ensure_copilot_for_project(cx);
         let log_store = self.log_store.read(cx);
 
-        let unknown_server = LanguageServerName::new_static("unknown server");
+        let unknown_server = LanguageServerName::new_static("未知服务器");
 
         let mut rows = log_store
             .language_servers
@@ -397,7 +397,7 @@ impl LspLogView {
                         .worktree_id
                         .and_then(|id| self.project.read(cx).worktree_for_id(id, cx))
                         .map(|worktree| worktree.read(cx).root_name_str().to_string())
-                        .unwrap_or_else(|| "Unknown worktree".to_string());
+                        .unwrap_or_else(|| "未知工作树".to_string());
 
                     LogMenuItem {
                         server_id: *server_id,
@@ -414,7 +414,7 @@ impl LspLogView {
                     server_id: *server_id,
                     server_name: state.name.clone().unwrap_or(unknown_server.clone()),
                     server_kind: state.kind.clone(),
-                    worktree_root_name: "supplementary".to_string(),
+                    worktree_root_name: "补充".to_string(),
                     rpc_trace_enabled: state.rpc_state.is_some(),
                     selected_entry: self.active_entry_kind,
                     trace_level: lsp::TraceValue::Off,
@@ -430,7 +430,7 @@ impl LspLogView {
                             server_id,
                             server_name: name,
                             server_kind: state.kind.clone(),
-                            worktree_root_name: "supplementary".to_string(),
+                            worktree_root_name: "补充".to_string(),
                             rpc_trace_enabled: state.rpc_state.is_some(),
                             selected_entry: self.active_entry_kind,
                             trace_level: lsp::TraceValue::Off,
@@ -560,7 +560,7 @@ impl LspLogView {
                 .buffer()
                 .read(cx)
                 .as_singleton()
-                .expect("log buffer should be a singleton")
+                .expect("日志缓冲区应为单例")
                 .update(cx, |_, cx| {
                     cx.spawn({
                         let buffer = cx.entity();
@@ -744,7 +744,7 @@ impl Item for LspLogView {
     }
 
     fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
-        "LSP Logs".into()
+        "LSP 日志".into()
     }
 
     fn telemetry_event_text(&self) -> Option<&'static str> {
@@ -874,7 +874,7 @@ impl SearchableItem for LspLogView {
         _window: &mut Window,
         _: &mut Context<Self>,
     ) {
-        // Since LSP Log is read-only, it doesn't make sense to support replace operation.
+        // 由于 LSP 日志为只读，不支持替换操作。
     }
     fn supported_options(&self) -> workspace::searchable::SearchOptions {
         workspace::searchable::SearchOptions {
@@ -882,7 +882,7 @@ impl SearchableItem for LspLogView {
             word: true,
             regex: true,
             find_in_results: false,
-            // LSP log is read-only.
+            // LSP 日志为只读。
             replacement: false,
             selection: false,
             select_all: true,
@@ -973,7 +973,7 @@ impl Render for LspLogToolbarItemView {
                                 row.server_name.0, row.worktree_root_name,
                             ))
                         })
-                        .unwrap_or_else(|| "No server selected".into()),
+                        .unwrap_or_else(|| "未选择服务器".into()),
                 )
                 .end_icon(
                     Icon::new(IconName::ChevronDown)
@@ -1132,7 +1132,7 @@ impl Render for LspLogToolbarItemView {
                                         .trigger(
                                             Button::new(
                                                 "language_server_trace_level_selector",
-                                                "Trace level",
+                                                "跟踪级别",
                                             )
                                             .end_icon(
                                                 Icon::new(IconName::ChevronDown)
@@ -1163,9 +1163,9 @@ impl Render for LspLogToolbarItemView {
                                                         let log_view = log_view.clone();
 
                                                         for (option, label) in [
-                                                            (TraceValue::Off, "Off"),
-                                                            (TraceValue::Messages, "Messages"),
-                                                            (TraceValue::Verbose, "Verbose"),
+                                                            (TraceValue::Off, "关闭"),
+                                                            (TraceValue::Messages, "消息"),
+                                                            (TraceValue::Verbose, "详细"),
                                                         ] {
                                                             menu = menu.entry(label, None, {
                                                                 let log_view = log_view.clone();
@@ -1202,7 +1202,7 @@ impl Render for LspLogToolbarItemView {
                                         .trigger(
                                             Button::new(
                                                 "language_server_log_level_selector",
-                                                "Log level",
+                                                "日志级别",
                                             )
                                             .end_icon(
                                                 Icon::new(IconName::ChevronDown)
@@ -1233,10 +1233,10 @@ impl Render for LspLogToolbarItemView {
                                                         let log_view = log_view.clone();
 
                                                         for (option, label) in [
-                                                            (MessageType::LOG, "Log"),
-                                                            (MessageType::INFO, "Info"),
-                                                            (MessageType::WARNING, "Warning"),
-                                                            (MessageType::ERROR, "Error"),
+                                                            (MessageType::LOG, "日志"),
+                                                            (MessageType::INFO, "信息"),
+                                                            (MessageType::WARNING, "警告"),
+                                                            (MessageType::ERROR, "错误"),
                                                         ] {
                                                             menu = menu.entry(label, None, {
                                                                 let log_view = log_view.clone();
@@ -1270,7 +1270,7 @@ impl Render for LspLogToolbarItemView {
                     ),
             )
             .child(
-                Button::new("clear_log_button", "Clear").on_click(cx.listener(
+                Button::new("clear_log_button", "清空").on_click(cx.listener(
                     |this, _, window, cx| {
                         if let Some(log_view) = this.log_view.as_ref() {
                             log_view.update(cx, |log_view, cx| {
@@ -1311,10 +1311,10 @@ fn initialize_new_editor(
     })
 }
 
-const RPC_MESSAGES: &str = "RPC Messages";
-const SERVER_LOGS: &str = "Server Logs";
-const SERVER_TRACE: &str = "Server Trace";
-const SERVER_INFO: &str = "Server Info";
+const RPC_MESSAGES: &str = "RPC 消息";
+const SERVER_LOGS: &str = "服务器日志";
+const SERVER_TRACE: &str = "服务器跟踪";
+const SERVER_INFO: &str = "服务器信息";
 
 impl LspLogToolbarItemView {
     pub fn new() -> Self {

@@ -8,8 +8,10 @@ use project::WorktreeId;
 use std::sync::Arc;
 use ui::{ListItem, ListItemSpacing, PopoverMenu, PopoverMenuHandle, PopoverTrigger, prelude::*};
 
+/// 选择内核后的回调类型
 type OnSelect = Box<dyn Fn(KernelSpecification, &mut Window, &mut App)>;
 
+/// 内核选择器列表项：分组标题 / 内核项
 #[derive(Clone)]
 pub enum KernelPickerEntry {
     SectionHeader(SharedString),
@@ -19,6 +21,7 @@ pub enum KernelPickerEntry {
     },
 }
 
+/// 构建分组后的内核列表（推荐 → Python环境 → Jupyter → WSL → 远程）
 fn build_grouped_entries(store: &ReplStore, worktree_id: WorktreeId) -> Vec<KernelPickerEntry> {
     let mut entries = Vec::new();
     let mut recommended_entry: Option<KernelPickerEntry> = None;
@@ -34,6 +37,7 @@ fn build_grouped_entries(store: &ReplStore, worktree_id: WorktreeId) -> Vec<Kern
         let is_recommended = store.is_recommended_kernel(worktree_id, spec);
         let is_selected = selected_kernel.map_or(false, |s| s == spec);
 
+        // 优先记录当前选中项 / 推荐项
         if is_selected {
             recommended_entry = Some(KernelPickerEntry::Kernel {
                 spec: spec.clone(),
@@ -47,6 +51,7 @@ fn build_grouped_entries(store: &ReplStore, worktree_id: WorktreeId) -> Vec<Kern
             });
         }
 
+        // 按类型分组
         match spec {
             KernelSpecification::PythonEnv(_) => {
                 python_envs.push(KernelPickerEntry::Kernel {
@@ -75,7 +80,7 @@ fn build_grouped_entries(store: &ReplStore, worktree_id: WorktreeId) -> Vec<Kern
         }
     }
 
-    // Sort Python envs: has_ipykernel first, then by name
+    // Python 环境排序：安装 ipykernel 的优先 → 再按名称
     python_envs.sort_by(|a, b| {
         let (spec_a, spec_b) = match (a, b) {
             (
@@ -90,41 +95,40 @@ fn build_grouped_entries(store: &ReplStore, worktree_id: WorktreeId) -> Vec<Kern
             .then_with(|| spec_a.name().cmp(&spec_b.name()))
     });
 
-    // Recommended section
+    // 推荐分组
     if let Some(rec) = recommended_entry {
-        entries.push(KernelPickerEntry::SectionHeader("Recommended".into()));
+        entries.push(KernelPickerEntry::SectionHeader("推荐".into()));
         entries.push(rec);
     }
 
-    // Python Environments section
+    // Python 环境
     if !python_envs.is_empty() {
-        entries.push(KernelPickerEntry::SectionHeader(
-            "Python Environments".into(),
-        ));
+        entries.push(KernelPickerEntry::SectionHeader("Python 环境".into()));
         entries.extend(python_envs);
     }
 
-    // Jupyter Kernels section
+    // Jupyter 内核
     if !jupyter_kernels.is_empty() {
-        entries.push(KernelPickerEntry::SectionHeader("Jupyter Kernels".into()));
+        entries.push(KernelPickerEntry::SectionHeader("Jupyter 内核".into()));
         entries.extend(jupyter_kernels);
     }
 
-    // WSL Kernels section
+    // WSL 内核
     if !wsl_kernels.is_empty() {
-        entries.push(KernelPickerEntry::SectionHeader("WSL Kernels".into()));
+        entries.push(KernelPickerEntry::SectionHeader("WSL 内核".into()));
         entries.extend(wsl_kernels);
     }
 
-    // Remote section
+    // 远程服务器
     if !remote_kernels.is_empty() {
-        entries.push(KernelPickerEntry::SectionHeader("Remote Servers".into()));
+        entries.push(KernelPickerEntry::SectionHeader("远程服务器".into()));
         entries.extend(remote_kernels);
     }
 
     entries
 }
 
+/// 内核选择器组件（带弹出菜单）
 #[derive(IntoElement)]
 pub struct KernelSelector<T, TT>
 where
@@ -139,6 +143,7 @@ where
     worktree_id: WorktreeId,
 }
 
+/// 内核选择器代理（实现 Picker 列表逻辑）
 pub struct KernelPickerDelegate {
     all_entries: Vec<KernelPickerEntry>,
     filtered_entries: Vec<KernelPickerEntry>,
@@ -152,6 +157,7 @@ where
     T: PopoverTrigger + ButtonCommon,
     TT: Fn(&mut Window, &mut App) -> AnyView + 'static,
 {
+    /// 创建内核选择器
     pub fn new(on_select: OnSelect, worktree_id: WorktreeId, trigger: T, tooltip: TT) -> Self {
         KernelSelector {
             on_select,
@@ -163,11 +169,13 @@ where
         }
     }
 
+    /// 设置弹出菜单句柄
     pub fn with_handle(mut self, handle: PopoverMenuHandle<Picker<KernelPickerDelegate>>) -> Self {
         self.handle = Some(handle);
         self
     }
 
+    /// 设置提示文本
     pub fn with_info_text(mut self, text: impl Into<SharedString>) -> Self {
         self.info_text = Some(text.into());
         self
@@ -175,6 +183,7 @@ where
 }
 
 impl KernelPickerDelegate {
+    /// 获取第一个可选择的内核项索引（跳过标题）
     fn first_selectable_index(entries: &[KernelPickerEntry]) -> usize {
         entries
             .iter()
@@ -182,6 +191,7 @@ impl KernelPickerDelegate {
             .unwrap_or(0)
     }
 
+    /// 获取下一个可选择项索引（上下方向）
     fn next_selectable_index(&self, from: usize, direction: i32) -> usize {
         let len = self.filtered_entries.len();
         if len == 0 {
@@ -214,6 +224,7 @@ impl PickerDelegate for KernelPickerDelegate {
         self.selected_index
     }
 
+    /// 设置选中项（自动跳过分组标题）
     fn set_selected_index(&mut self, ix: usize, _: &mut Window, cx: &mut Context<Picker<Self>>) {
         if matches!(
             self.filtered_entries.get(ix),
@@ -238,9 +249,10 @@ impl PickerDelegate for KernelPickerDelegate {
     }
 
     fn placeholder_text(&self, _window: &mut Window, _cx: &mut App) -> Arc<str> {
-        "Select a kernel...".into()
+        "选择内核...".into()
     }
 
+    /// 搜索过滤内核列表
     fn update_matches(
         &mut self,
         query: String,
@@ -283,6 +295,7 @@ impl PickerDelegate for KernelPickerDelegate {
         Task::ready(())
     }
 
+    /// 分组标题前显示分隔线
     fn separators_after_indices(&self) -> Vec<usize> {
         let mut separators = Vec::new();
         for (index, entry) in self.filtered_entries.iter().enumerate() {
@@ -293,6 +306,7 @@ impl PickerDelegate for KernelPickerDelegate {
         separators
     }
 
+    /// 确认选择内核
     fn confirm(&mut self, _secondary: bool, window: &mut Window, cx: &mut Context<Picker<Self>>) {
         if let Some(KernelPickerEntry::Kernel { spec, .. }) =
             self.filtered_entries.get(self.selected_index)
@@ -304,6 +318,7 @@ impl PickerDelegate for KernelPickerDelegate {
 
     fn dismissed(&mut self, _window: &mut Window, _cx: &mut Context<Picker<Self>>) {}
 
+    /// 渲染列表项：标题 / 内核
     fn render_match(
         &self,
         ix: usize,
@@ -314,6 +329,7 @@ impl PickerDelegate for KernelPickerDelegate {
         let entry = self.filtered_entries.get(ix)?;
 
         match entry {
+            // 分组标题
             KernelPickerEntry::SectionHeader(title) => Some(
                 ListItem::new(ix)
                     .inset(true)
@@ -326,6 +342,7 @@ impl PickerDelegate for KernelPickerDelegate {
                             .color(Color::Muted),
                     ),
             ),
+            // 内核项
             KernelPickerEntry::Kernel {
                 spec,
                 is_recommended,
@@ -358,6 +375,7 @@ impl PickerDelegate for KernelPickerDelegate {
                             h_flex()
                                 .w_full()
                                 .gap_3()
+                                // 未安装 ipykernel 则半透明
                                 .when(!has_ipykernel, |flex| flex.opacity(0.5))
                                 .child(icon.color(Color::Default).size(IconSize::Medium))
                                 .child(
@@ -379,16 +397,18 @@ impl PickerDelegate for KernelPickerDelegate {
                                                                 .size(LabelSize::Default),
                                                         ),
                                                 )
+                                                // 推荐标签
                                                 .when(*is_recommended, |flex| {
                                                     flex.child(
-                                                        Label::new("Recommended")
+                                                        Label::new("推荐")
                                                             .size(LabelSize::XSmall)
                                                             .color(Color::Accent),
                                                     )
                                                 })
+                                                // 未安装 ipykernel 警告
                                                 .when(!has_ipykernel, |flex| {
                                                     flex.child(
-                                                        Label::new("ipykernel not installed")
+                                                        Label::new("未安装 ipykernel")
                                                             .size(LabelSize::XSmall)
                                                             .color(Color::Warning),
                                                     )
@@ -405,6 +425,7 @@ impl PickerDelegate for KernelPickerDelegate {
                                         }),
                                 ),
                         )
+                        // 当前选中项显示对勾
                         .when(is_currently_selected, |item| {
                             item.end_slot(
                                 Icon::new(IconName::Check)
@@ -417,6 +438,7 @@ impl PickerDelegate for KernelPickerDelegate {
         }
     }
 
+    /// 渲染底部：内核文档链接
     fn render_footer(
         &self,
         _: &mut Window,
@@ -430,7 +452,7 @@ impl PickerDelegate for KernelPickerDelegate {
                 .p_1()
                 .gap_4()
                 .child(
-                    Button::new("kernel-docs", "Kernel Docs")
+                    Button::new("kernel-docs", "内核文档")
                         .end_icon(
                             Icon::new(IconName::ArrowUpRight)
                                 .size(IconSize::Small)

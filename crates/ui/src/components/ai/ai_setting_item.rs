@@ -2,29 +2,32 @@ use crate::{IconDecoration, IconDecorationKind, Tooltip, prelude::*};
 use gpui::{Animation, AnimationExt, SharedString, pulsating_between};
 use std::time::Duration;
 
+/// AI 设置项状态
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum AiSettingItemStatus {
     #[default]
-    Stopped,
-    Starting,
-    Running,
-    Error,
-    AuthRequired,
-    Authenticating,
+    Stopped,        // 已停止
+    Starting,       // 启动中
+    Running,        // 运行中
+    Error,          // 异常
+    AuthRequired,   // 需要认证
+    Authenticating, // 认证中
 }
 
 impl AiSettingItemStatus {
+    /// 状态提示文本
     fn tooltip_text(&self) -> &'static str {
         match self {
-            Self::Stopped => "Server is stopped.",
-            Self::Starting => "Server is starting.",
-            Self::Running => "Server is active.",
-            Self::Error => "Server has an error.",
-            Self::AuthRequired => "Authentication required.",
-            Self::Authenticating => "Waiting for authorization…",
+            Self::Stopped => "服务已停止。",
+            Self::Starting => "服务正在启动。",
+            Self::Running => "服务正常运行。",
+            Self::Error => "服务出现异常。",
+            Self::AuthRequired => "需要完成认证。",
+            Self::Authenticating => "等待授权中…",
         }
     }
 
+    /// 状态指示器颜色
     fn indicator_color(&self) -> Option<Color> {
         match self {
             Self::Stopped => None,
@@ -35,19 +38,22 @@ impl AiSettingItemStatus {
         }
     }
 
+    /// 是否启用动画
     fn is_animated(&self) -> bool {
         matches!(self, Self::Starting | Self::Authenticating)
     }
 }
 
+/// AI 设置项来源
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AiSettingItemSource {
-    Extension,
-    Custom,
-    Registry,
+    Extension,  // 扩展
+    Custom,     // 自定义配置
+    Registry,   // 官方仓库
 }
 
 impl AiSettingItemSource {
+    /// 来源图标
     fn icon_name(&self) -> IconName {
         match self {
             Self::Extension => IconName::ZedSrcExtension,
@@ -56,16 +62,17 @@ impl AiSettingItemSource {
         }
     }
 
+    /// 来源提示文本
     fn tooltip_text(&self, label: &str) -> String {
         match self {
-            Self::Extension => format!("{label} was installed from an extension."),
-            Self::Registry => format!("{label} was installed from the ACP registry."),
-            Self::Custom => format!("{label} was configured manually."),
+            Self::Extension => format!("{label} 来自扩展安装。"),
+            Self::Registry => format!("{label} 来自 ACP 仓库安装。"),
+            Self::Custom => format!("{label} 为手动配置。"),
         }
     }
 }
 
-/// A reusable setting item row for AI-related configuration lists.
+/// AI 相关配置列表的可复用设置项行组件
 #[derive(IntoElement, RegisterComponent)]
 pub struct AiSettingItem {
     id: ElementId,
@@ -79,6 +86,7 @@ pub struct AiSettingItem {
 }
 
 impl AiSettingItem {
+    /// 创建 AI 设置项
     pub fn new(
         id: impl Into<ElementId>,
         label: impl Into<SharedString>,
@@ -97,21 +105,25 @@ impl AiSettingItem {
         }
     }
 
+    /// 设置自定义图标
     pub fn icon(mut self, element: impl IntoElement) -> Self {
         self.icon = Some(element.into_any_element());
         self
     }
 
+    /// 设置详情标签
     pub fn detail_label(mut self, detail: impl Into<SharedString>) -> Self {
         self.detail_label = Some(detail.into());
         self
     }
 
+    /// 添加操作按钮
     pub fn action(mut self, element: impl IntoElement) -> Self {
         self.actions.push(element.into_any_element());
         self
     }
 
+    /// 设置底部详情内容
     pub fn details(mut self, element: impl IntoElement) -> Self {
         self.details = Some(element.into_any_element());
         self
@@ -136,6 +148,7 @@ impl RenderOnce for AiSettingItem {
         let status_tooltip = status.tooltip_text();
         let source_tooltip = source.tooltip_text(&label);
 
+        // 未指定图标时，使用首字母头像
         let icon_element = icon.unwrap_or_else(|| {
             let letter = label.chars().next().unwrap_or('?').to_ascii_uppercase();
 
@@ -156,6 +169,7 @@ impl RenderOnce for AiSettingItem {
                 .into_any_element()
         });
 
+        // 启动/认证状态添加呼吸动画
         let icon_child = if status.is_animated() {
             div()
                 .child(icon_element)
@@ -171,6 +185,7 @@ impl RenderOnce for AiSettingItem {
             icon_element.into_any_element()
         };
 
+        // 图标容器 + 状态角标
         let icon_container = div()
             .id(icon_id)
             .relative()
@@ -193,6 +208,7 @@ impl RenderOnce for AiSettingItem {
                 )
             });
 
+        // 主布局
         v_flex()
             .id(id)
             .min_w_0()
@@ -242,6 +258,7 @@ impl Component for AiSettingItem {
         ComponentScope::Agent
     }
 
+    /// 组件预览
     fn preview(_window: &mut Window, cx: &mut App) -> Option<AnyElement> {
         let container = || {
             v_flex()
@@ -283,7 +300,7 @@ impl Component for AiSettingItem {
 
         let examples = vec![
             single_example(
-                "MCP server with letter avatar (running)",
+                "首字母头像 MCP 服务（运行中）",
                 container()
                     .child(
                         AiSettingItem::new(
@@ -292,7 +309,7 @@ impl Component for AiSettingItem {
                             AiSettingItemStatus::Running,
                             AiSettingItemSource::Extension,
                         )
-                        .detail_label("3 tools")
+                        .detail_label("3 个工具")
                         .action(
                             IconButton::new("menu", IconName::Settings)
                                 .icon_size(IconSize::Small)
@@ -307,7 +324,7 @@ impl Component for AiSettingItem {
                     .into_any_element(),
             ),
             single_example(
-                "MCP server (stopped)",
+                "MCP 服务（已停止）",
                 container()
                     .child(AiSettingItem::new(
                         "custom-mcp",
@@ -318,7 +335,7 @@ impl Component for AiSettingItem {
                     .into_any_element(),
             ),
             single_example(
-                "MCP server (starting, animated)",
+                "MCP 服务（启动中，带动画）",
                 container()
                     .child(AiSettingItem::new(
                         "starting-mcp",
@@ -329,7 +346,7 @@ impl Component for AiSettingItem {
                     .into_any_element(),
             ),
             single_example(
-                "Agent with icon (running)",
+                "自定义图标智能体（运行中）",
                 container()
                     .child(
                         AiSettingItem::new(
@@ -357,7 +374,7 @@ impl Component for AiSettingItem {
                     .into_any_element(),
             ),
             single_example(
-                "Registry agent (starting, animated)",
+                "仓库智能体（启动中，带动画）",
                 container()
                     .child(
                         AiSettingItem::new(
@@ -375,7 +392,7 @@ impl Component for AiSettingItem {
                     .into_any_element(),
             ),
             single_example(
-                "Error with details",
+                "异常状态（带详情）",
                 container()
                     .child(
                         AiSettingItem::new(
@@ -388,10 +405,10 @@ impl Component for AiSettingItem {
                             details_row(
                                 IconName::XCircle,
                                 Color::Error,
-                                "Failed to connect: connection refused",
+                                "连接失败：连接被拒绝",
                             )
                             .child(
-                                Button::new("logout", "Log Out")
+                                Button::new("logout", "退出登录")
                                     .style(ButtonStyle::Outlined)
                                     .label_size(LabelSize::Small),
                             ),

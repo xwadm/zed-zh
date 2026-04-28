@@ -9,11 +9,15 @@ use ui::{CollabNotification, prelude::*};
 use util::ResultExt;
 use workspace::AppState;
 
+/// 初始化项目共享通知监听器
+/// 监听房间内的项目共享事件，并弹出通知窗口
 pub fn init(app_state: &Arc<AppState>, cx: &mut App) {
     let app_state = Arc::downgrade(app_state);
     let active_call = ActiveCall::global(cx);
     let mut notification_windows = HashMap::default();
+    
     cx.subscribe(&active_call, move |_, event, cx| match event {
+        // 收到远程项目共享邀请
         room::Event::RemoteProjectShared {
             owner,
             project_id,
@@ -24,6 +28,7 @@ pub fn init(app_state: &Arc<AppState>, cx: &mut App) {
                 height: px(72.),
             };
 
+            // 在所有屏幕上显示通知
             for screen in cx.displays() {
                 let options = notification_window_options(screen, window_size, cx);
                 let Some(window) = cx
@@ -48,6 +53,7 @@ pub fn init(app_state: &Arc<AppState>, cx: &mut App) {
             }
         }
 
+        // 项目共享取消/已加入/邀请已丢弃：关闭对应通知
         room::Event::RemoteProjectUnshared { project_id }
         | room::Event::RemoteProjectJoined { project_id }
         | room::Event::RemoteProjectInvitationDiscarded { project_id } => {
@@ -62,6 +68,7 @@ pub fn init(app_state: &Arc<AppState>, cx: &mut App) {
             }
         }
 
+        // 离开房间：关闭所有通知
         room::Event::RoomLeft { .. } => {
             for (_, windows) in notification_windows.drain() {
                 for window in windows {
@@ -78,6 +85,7 @@ pub fn init(app_state: &Arc<AppState>, cx: &mut App) {
     .detach();
 }
 
+/// 项目共享通知组件
 pub struct ProjectSharedNotification {
     project_id: u64,
     worktree_root_names: Vec<String>,
@@ -86,6 +94,7 @@ pub struct ProjectSharedNotification {
 }
 
 impl ProjectSharedNotification {
+    /// 创建项目共享通知
     fn new(
         owner: Arc<User>,
         project_id: u64,
@@ -100,6 +109,7 @@ impl ProjectSharedNotification {
         }
     }
 
+    /// 加入共享的项目
     fn join(&mut self, cx: &mut Context<Self>) {
         if let Some(app_state) = self.app_state.upgrade() {
             workspace::join_in_room_project(self.project_id, self.owner.id, app_state, cx)
@@ -107,6 +117,7 @@ impl ProjectSharedNotification {
         }
     }
 
+    /// 关闭通知，丢弃项目邀请
     fn dismiss(&mut self, cx: &mut Context<Self>) {
         if let Some(active_room) = ActiveCall::global(cx).read(cx).room().cloned() {
             active_room.update(cx, |_, cx| {
@@ -125,24 +136,28 @@ impl Render for ProjectSharedNotification {
 
         let punctuation = if no_worktree_root_names { "" } else { ":" };
         let main_label = format!(
-            "{} is sharing a project with you{}",
+            "{} 正在与你共享项目{}",
             self.owner.github_login.clone(),
             punctuation
         );
 
+        // 渲染协作通知 UI
         div().size_full().font(ui_font).child(
             CollabNotification::new(
                 self.owner.avatar_uri.clone(),
-                Button::new("open", "Open").on_click(cx.listener(move |this, _event, _, cx| {
+                // 打开/加入按钮
+                Button::new("open", "打开").on_click(cx.listener(move |this, _event, _, cx| {
                     this.join(cx);
                 })),
-                Button::new("dismiss", "Dismiss").on_click(cx.listener(
+                // 关闭按钮
+                Button::new("dismiss", "关闭").on_click(cx.listener(
                     move |this, _event, _, cx| {
                         this.dismiss(cx);
                     },
                 )),
             )
             .child(Label::new(main_label))
+            // 显示项目根目录名称（灰色小字）
             .when(!no_worktree_root_names, |this| {
                 this.child(Label::new(self.worktree_root_names.join(", ")).color(Color::Muted))
             }),

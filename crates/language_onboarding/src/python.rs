@@ -4,6 +4,7 @@ use gpui::{Context, EventEmitter, Subscription};
 use ui::{Banner, FluentBuilder as _, prelude::*};
 use workspace::{ToolbarItemEvent, ToolbarItemLocation, ToolbarItemView, Workspace};
 
+/// BasedPyright 提示横幅，用于通知用户Python语言服务器默认配置变更
 pub struct BasedPyrightBanner {
     dismissed: bool,
     have_basedpyright: bool,
@@ -31,6 +32,7 @@ impl BasedPyrightBanner {
         }
     }
 
+    /// 判断是否启用引导横幅（未关闭且已加载basedpyright）
     fn onboarding_banner_enabled(&self) -> bool {
         !self.dismissed && self.have_basedpyright
     }
@@ -48,14 +50,14 @@ impl Render for BasedPyrightBanner {
                         .child(
                             v_flex()
                                 .gap_0p5()
-                                .child(Label::new("Basedpyright is now the only default language server for Python").mt_0p5())
-                                .child(Label::new("We have disabled PyRight and pylsp by default. They can be re-enabled in your settings.").size(LabelSize::Small).color(Color::Muted))
+                                .child(Label::new("Basedpyright 现已成为 Python 唯一的默认语言服务器").mt_0p5())
+                                .child(Label::new("我们已默认禁用 PyRight 和 pylsp，你可以在设置中重新启用它们").size(LabelSize::Small).color(Color::Muted))
                         )
                         .action_slot(
                             h_flex()
                                 .gap_0p5()
                                 .child(
-                                    Button::new("learn-more", "Learn More")
+                                    Button::new("learn-more", "了解详情")
                                         .label_size(LabelSize::Small)
                                         .end_icon(Icon::new(IconName::ArrowUpRight).size(IconSize::XSmall).color(Color::Muted))
                                         .on_click(|_, _, cx| {
@@ -77,6 +79,7 @@ impl Render for BasedPyrightBanner {
 }
 
 impl ToolbarItemView for BasedPyrightBanner {
+    /// 设置激活的面板项目，控制横幅显示位置
     fn set_active_pane_item(
         &mut self,
         active_pane_item: Option<&dyn workspace::ItemHandle>,
@@ -86,6 +89,7 @@ impl ToolbarItemView for BasedPyrightBanner {
         if !self.onboarding_banner_enabled() {
             return ToolbarItemLocation::Hidden;
         }
+        // 仅在打开Python文件时显示横幅
         if let Some(item) = active_pane_item
             && let Some(editor) = item.act_as::<Editor>(cx)
             && let Some(path) = editor.update(cx, |editor, cx| editor.target_file_abs_path(cx))

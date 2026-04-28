@@ -26,8 +26,10 @@ use workspace::Workspace;
 
 use crate::{ToggleDataBreakpoint, session::running::stack_frame_list::StackFrameList};
 
+// 定义调试器相关操作：跳转到选中地址
 actions!(debugger, [GoToSelectedAddress]);
 
+/// 内存视图组件，用于展示和编辑调试过程中的内存数据
 pub(crate) struct MemoryView {
     workspace: WeakEntity<Workspace>,
     stack_frame_list: WeakEntity<StackFrameList>,
@@ -45,6 +47,8 @@ impl Focusable for MemoryView {
         self.focus_handle.clone()
     }
 }
+
+/// 内存拖拽选择状态
 #[derive(Clone, Debug)]
 struct Drag {
     start_address: u64,
@@ -52,11 +56,13 @@ struct Drag {
 }
 
 impl Drag {
+    /// 判断是否包含指定内存地址
     fn contains(&self, address: u64) -> bool {
         let range = self.memory_range();
         range.contains(&address)
     }
 
+    /// 获取拖拽对应的内存地址范围
     fn memory_range(&self) -> RangeInclusive<u64> {
         if self.start_address < self.end_address {
             self.start_address..=self.end_address
@@ -65,6 +71,8 @@ impl Drag {
         }
     }
 }
+
+/// 选中的内存范围状态：拖拽中/拖拽完成
 #[derive(Clone, Debug)]
 enum SelectedMemoryRange {
     DragUnderway(Drag),
@@ -72,15 +80,20 @@ enum SelectedMemoryRange {
 }
 
 impl SelectedMemoryRange {
+    /// 判断是否包含指定地址
     fn contains(&self, address: u64) -> bool {
         match self {
             SelectedMemoryRange::DragUnderway(drag) => drag.contains(address),
             SelectedMemoryRange::DragComplete(drag) => drag.contains(address),
         }
     }
+
+    /// 是否正在拖拽
     fn is_dragging(&self) -> bool {
         matches!(self, SelectedMemoryRange::DragUnderway(_))
     }
+
+    /// 获取拖拽对象
     fn drag(&self) -> &Drag {
         match self {
             SelectedMemoryRange::DragUnderway(drag) => drag,
@@ -89,6 +102,7 @@ impl SelectedMemoryRange {
     }
 }
 
+/// 视图状态句柄（线程安全的可共享引用）
 #[derive(Clone)]
 struct ViewStateHandle(Rc<RefCell<ViewState>>);
 
@@ -98,11 +112,12 @@ impl ViewStateHandle {
     }
 }
 
+/// 内存视图状态
 #[derive(Clone)]
 struct ViewState {
-    /// Uppermost row index
+    /// 最顶部的行索引
     base_row: u64,
-    /// How many cells per row do we have?
+    /// 每行显示的内存单元数量
     line_width: ViewWidth,
     scroll_handle: UniformListScrollHandle,
     selection: Option<SelectedMemoryRange>,
@@ -117,19 +132,25 @@ impl ViewState {
             selection: None,
         }
     }
+
+    /// 计算总行数（基于分页大小）
     fn row_count(&self) -> u64 {
-        // This was picked fully arbitrarily. There's no incentive for us to care about page sizes other than the fact that it seems to be a good
-        // middle ground for data size.
+        // 分页大小为任意选定值，作为数据大小的合理中间值
         const PAGE_SIZE: u64 = 4096;
         PAGE_SIZE / self.line_width.width as u64
     }
+
+    /// 向下滚动一行
     fn schedule_scroll_down(&mut self) {
         self.base_row = self.base_row.saturating_add(1)
     }
+
+    /// 向上滚动一行
     fn schedule_scroll_up(&mut self) {
         self.base_row = self.base_row.saturating_sub(1);
     }
 
+    /// 设置滚动偏移量
     fn set_offset(&mut self, point: Point<Pixels>) {
         if point.y >= -Pixels::ZERO {
             self.schedule_scroll_up();
@@ -158,11 +179,14 @@ impl ScrollableHandle for ViewStateHandle {
     }
 }
 
+/// 十六进制字节缓存，避免重复格式化
 static HEX_BYTES_MEMOIZED: LazyLock<[SharedString; 256]> =
     LazyLock::new(|| std::array::from_fn(|byte| SharedString::from(format!("{byte:02X}"))));
+/// 未知字节占位符
 static UNKNOWN_BYTE: SharedString = SharedString::new_static("??");
 
 impl MemoryView {
+    /// 创建新的内存视图实例
     pub(crate) fn new(
         session: Entity<Session>,
         workspace: WeakEntity<Workspace>,
@@ -194,10 +218,12 @@ impl MemoryView {
         this
     }
 
+    /// 获取可变的视图状态
     fn view_state(&self) -> RefMut<'_, ViewState> {
         self.view_state_handle.0.borrow_mut()
     }
 
+    /// 渲染内存列表区域
     fn render_memory(&self, cx: &mut Context<Self>) -> UniformList {
         let weak = cx.weak_entity();
         let session = self.session.clone();
@@ -239,12 +265,16 @@ impl MemoryView {
                 .set_offset(current_offset.apply_along(Axis::Vertical, |offset| offset + delta.y));
         }))
     }
+
+    /// 渲染查询输入栏
     fn render_query_bar(&self, cx: &Context<Self>) -> impl IntoElement {
         EditorElement::new(
             &self.query_editor,
             Self::editor_style(&self.query_editor, cx),
         )
     }
+
+    /// 跳转到指定内存引用地址
     pub(super) fn go_to_memory_reference(
         &mut self,
         memory_reference: &str,
@@ -277,6 +307,7 @@ impl MemoryView {
         .detach();
     }
 
+    /// 处理内存拖拽滚动
     fn handle_memory_drag(&mut self, evt: &DragMoveEvent<Drag>) {
         let mut view_state = self.view_state();
         if !view_state
@@ -298,6 +329,7 @@ impl MemoryView {
         }
     }
 
+    /// 编辑器样式配置
     fn editor_style(editor: &Entity<Editor>, cx: &Context<Self>) -> EditorStyle {
         let is_read_only = editor.read(cx).read_only(cx);
         let settings = ThemeSettings::get_global(cx);
@@ -323,6 +355,7 @@ impl MemoryView {
         }
     }
 
+    /// 渲染行宽选择下拉菜单
     fn render_width_picker(&self, window: &mut Window, cx: &mut Context<Self>) -> DropdownMenu {
         let weak = cx.weak_entity();
         let selected_width = self.view_state().line_width.clone();
@@ -336,17 +369,17 @@ impl MemoryView {
                     this = this.entry(width.label.clone(), None, move |_, cx| {
                         _ = weak.update(cx, |this, _| {
                             let mut view_state = this.view_state();
-                            // Convert base ix between 2 line widths to keep the shown memory address roughly the same.
-                            // All widths are powers of 2, so the conversion should be lossless.
+                            // 在两种行宽之间转换基础索引，保持显示的内存地址大致不变
+                            // 所有宽度均为2的幂，因此转换无精度损失
                             match view_state.line_width.width.cmp(&width.width) {
                                 std::cmp::Ordering::Less => {
-                                    // We're converting up.
+                                    // 增大宽度
                                     let shift = width.width.trailing_zeros()
                                         - view_state.line_width.width.trailing_zeros();
                                     view_state.base_row >>= shift;
                                 }
                                 std::cmp::Ordering::Greater => {
-                                    // We're converting down.
+                                    // 减小宽度
                                     let shift = view_state.line_width.width.trailing_zeros()
                                         - width.width.trailing_zeros();
                                     view_state.base_row <<= shift;
@@ -371,6 +404,7 @@ impl MemoryView {
         .handle(self.width_picker_handle.clone())
     }
 
+    /// 向下翻页
     fn page_down(&mut self, _: &menu::SelectLast, _: &mut Window, cx: &mut Context<Self>) {
         let mut view_state = self.view_state();
         view_state.base_row = view_state
@@ -379,6 +413,8 @@ impl MemoryView {
             .0;
         cx.notify();
     }
+
+    /// 向上翻页
     fn page_up(&mut self, _: &menu::SelectFirst, _: &mut Window, cx: &mut Context<Self>) {
         let mut view_state = self.view_state();
         view_state.base_row = view_state
@@ -388,6 +424,7 @@ impl MemoryView {
         cx.notify();
     }
 
+    /// 切换查询栏模式：写入内存/跳转地址
     fn change_query_bar_mode(
         &mut self,
         is_writing_memory: bool,
@@ -400,19 +437,20 @@ impl MemoryView {
         if !self.is_writing_memory {
             self.query_editor.update(cx, |this, cx| {
                 this.clear(window, cx);
-                this.set_placeholder_text("Write to Selected Memory Range", window, cx);
+                this.set_placeholder_text("写入选中的内存范围", window, cx);
             });
             self.is_writing_memory = true;
             self.query_editor.focus_handle(cx).focus(window, cx);
         } else {
             self.query_editor.update(cx, |this, cx| {
                 this.clear(window, cx);
-                this.set_placeholder_text("Go to Memory Address / Expression", window, cx);
+                this.set_placeholder_text("跳转到内存地址/表达式", window, cx);
             });
             self.is_writing_memory = false;
         }
     }
 
+    /// 切换数据断点
     fn toggle_data_breakpoint(
         &mut self,
         _: &crate::ToggleDataBreakpoint,
@@ -456,10 +494,11 @@ impl MemoryView {
         })
     }
 
+    /// 确认操作：写入内存或跳转到地址
     fn confirm(&mut self, _: &menu::Confirm, window: &mut Window, cx: &mut Context<Self>) {
         let selection = self.view_state().selection.clone();
         if let Some(SelectedMemoryRange::DragComplete(drag)) = selection {
-            // Go into memory writing mode.
+            // 进入内存写入模式
             if !self.is_writing_memory {
                 let should_return = self.session.update(cx, |session, cx| {
                     if !session
@@ -468,11 +507,11 @@ impl MemoryView {
                         .unwrap_or_default()
                     {
                         let adapter_name = session.adapter();
-                        // We cannot write memory with this adapter.
+                        // 当前调试适配器不支持内存写入
                         _ = self.workspace.update(cx, |this, cx| {
                             this.toggle_status_toast(
                                 StatusToast::new(format!(
-                                    "Debug Adapter `{adapter_name}` does not support writing to memory"
+                                    "调试适配器 `{adapter_name}` 不支持写入内存"
                                 ), cx, |this, cx| {
                                     cx.spawn(async move |this, cx| {
                                         cx.background_executor().timer(Duration::from_secs(2)).await;
@@ -498,7 +537,7 @@ impl MemoryView {
             } else if self.query_editor.focus_handle(cx).is_focused(window) {
                 let mut text = self.query_editor.read(cx).text(cx);
                 if text.chars().any(|c| !c.is_ascii_hexdigit()) {
-                    // Interpret this text as a string and oh-so-conveniently convert it.
+                    // 将文本解析为字符串并自动转换为十六进制
                     text = text.bytes().map(|byte| format!("{:02x}", byte)).collect();
                 }
                 self.session.update(cx, |this, cx| {
@@ -514,13 +553,14 @@ impl MemoryView {
             cx.notify();
             return;
         }
-        // Just change the currently viewed address.
+        // 仅修改当前查看的地址
         if !self.query_editor.focus_handle(cx).is_focused(window) {
             return;
         }
         self.jump_to_query_bar_address(cx);
     }
 
+    /// 跳转到查询栏输入的地址
     fn jump_to_query_bar_address(&mut self, cx: &mut Context<Self>) {
         use parse_int::parse;
         let text = self.query_editor.read(cx).text(cx);
@@ -531,6 +571,7 @@ impl MemoryView {
         self.jump_to_address(as_address, cx);
     }
 
+    /// 跳转到指定内存地址
     fn jump_to_address(&mut self, address: u64, cx: &mut Context<Self>) {
         let mut view_state = self.view_state();
         view_state.base_row = (address & !0xfff) / view_state.line_width.width as u64;
@@ -541,6 +582,7 @@ impl MemoryView {
         cx.notify();
     }
 
+    /// 跳转到表达式对应的内存地址
     fn jump_to_expression(&mut self, expr: String, cx: &mut Context<Self>) {
         let Ok(selected_frame) = self
             .stack_frame_list
@@ -570,12 +612,13 @@ impl MemoryView {
         .detach();
     }
 
+    /// 取消选择
     fn cancel(&mut self, _: &menu::Cancel, _: &mut Window, cx: &mut Context<Self>) {
         self.view_state().selection = None;
         cx.notify();
     }
 
-    /// Jump to memory pointed to by selected memory range.
+    /// 跳转到选中内存范围指向的地址
     fn go_to_address(
         &mut self,
         _: &GoToSelectedAddress,
@@ -608,6 +651,7 @@ impl MemoryView {
         self.jump_to_query_bar_address(cx);
     }
 
+    /// 弹出内存上下文菜单
     fn deploy_memory_context_menu(
         &mut self,
         range: RangeInclusive<u64>,
@@ -630,14 +674,14 @@ impl MemoryView {
 
             let mut menu = menu.action_disabled_when(
                 range_too_large || *memory_unreadable,
-                "Go To Selected Address",
+                "跳转到选中地址",
                 GoToSelectedAddress.boxed_clone(),
             );
 
             if supports_data_breakpoints {
                 menu = menu.action_disabled_when(
                     *memory_unreadable,
-                    "Set Data Breakpoint",
+                    "设置数据断点",
                     ToggleDataBreakpoint { access_type: None }.boxed_clone(),
                 );
             }
@@ -663,6 +707,7 @@ impl MemoryView {
     }
 }
 
+/// 视图行宽配置
 #[derive(Clone)]
 struct ViewWidth {
     width: u8,
@@ -678,16 +723,18 @@ impl ViewWidth {
     }
 }
 
+/// 支持的内存行宽选项
 static WIDTHS: [ViewWidth; 7] = [
-    ViewWidth::new(1, "1 byte"),
-    ViewWidth::new(2, "2 bytes"),
-    ViewWidth::new(4, "4 bytes"),
-    ViewWidth::new(8, "8 bytes"),
-    ViewWidth::new(16, "16 bytes"),
-    ViewWidth::new(32, "32 bytes"),
-    ViewWidth::new(64, "64 bytes"),
+    ViewWidth::new(1, "1 字节"),
+    ViewWidth::new(2, "2 字节"),
+    ViewWidth::new(4, "4 字节"),
+    ViewWidth::new(8, "8 字节"),
+    ViewWidth::new(16, "16 字节"),
+    ViewWidth::new(32, "32 字节"),
+    ViewWidth::new(64, "64 字节"),
 ];
 
+/// 渲染单行内存视图
 fn render_single_memory_view_line(
     memory: &[MemoryCell],
     ix: u64,
@@ -817,7 +864,6 @@ fn render_single_memory_view_line(
                 .h_full()
                 .px_1()
                 .mr_4()
-                // .gap_x_1p5()
                 .border_x_1()
                 .border_color(Color::Muted.color(cx))
                 .children(memory.iter().enumerate().map(|(ix, cell)| {
@@ -852,11 +898,11 @@ impl Render for MemoryView {
         cx: &mut ui::Context<Self>,
     ) -> impl ui::IntoElement {
         let (icon, tooltip_text) = if self.is_writing_memory {
-            (IconName::Pencil, "Edit memory at a selected address")
+            (IconName::Pencil, "编辑选中地址的内存")
         } else {
             (
                 IconName::LocationEdit,
-                "Change address of currently viewed memory",
+                "修改当前查看内存的地址",
             )
         };
         v_flex()

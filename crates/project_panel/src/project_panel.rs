@@ -2197,8 +2197,8 @@ impl ProjectPanel {
             let file_name = entry.path.file_name()?.to_string();
 
             let answer = if !action.skip_prompt {
-                let prompt = format!("Discard changes to {}?", file_name);
-                Some(window.prompt(PromptLevel::Info, &prompt, None, &["Restore", "Cancel"], cx))
+                let prompt = format!("放弃对 {} 的更改？", file_name);
+                Some(window.prompt(PromptLevel::Info, &prompt, None, &["恢复", "取消"], cx))
             } else {
                 None
             };
@@ -3317,7 +3317,7 @@ impl ProjectPanel {
                             workspace.show_toast(
                                 workspace::Toast::new(
                                     notification_id.clone(),
-                                    format!("Downloading 0/{} files...", total_files),
+                                    format!("正在下载 0/{} 个文件...", total_files),
                                 ),
                                 cx,
                             );
@@ -3370,7 +3370,7 @@ impl ProjectPanel {
                             workspace.show_toast(
                                 workspace::Toast::new(
                                     notification_id.clone(),
-                                    format!("Downloaded {} files", total_files),
+                                    format!("已下载 {} 个文件", total_files),
                                 ),
                                 cx,
                             );
@@ -4331,9 +4331,7 @@ impl ProjectPanel {
                 for (filename, original_path) in &paths_to_replace {
                     let prompt_message = format!(
                         concat!(
-                            "A file or folder with name {} ",
-                            "already exists in the destination folder. ",
-                            "Do you want to replace it?"
+                            "目标文件夹中已存在同名文件或文件夹 {}。是否要替换？"
                         ),
                         filename
                     );
@@ -4343,7 +4341,7 @@ impl ProjectPanel {
                                 PromptLevel::Info,
                                 &prompt_message,
                                 None,
-                                &["Replace", "Cancel"],
+                                &["替换", "取消"],
                                 cx,
                             )
                         })?
@@ -7141,7 +7139,7 @@ impl Render for ProjectPanel {
                         .child(Divider::horizontal()),
                 )
                 .child(
-                    Button::new("clone_repo", "Clone Repository")
+                    Button::new("clone_repo", "克隆仓库")
                         .full_width()
                         .on_click(cx.listener(|this, _, window, cx| {
                             this.workspace

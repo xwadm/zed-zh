@@ -648,11 +648,11 @@ impl PickerDelegate for OpenPathDelegate {
                         self.should_dismiss = false;
                         let answer = window.prompt(
                             gpui::PromptLevel::Critical,
-                            &format!("{prompted_path:?} already exists. Do you want to replace it?"),
+                            &format!("{prompted_path:?} 已存在。是否要替换它？"),
                             Some(
-                                "A file or folder with the same name already exists. Replacing it will overwrite its current contents.",
+                                "同名文件或文件夹已存在。替换将覆盖其当前内容。",
                             ),
-                            &["Replace", "Cancel"],
+                            &["替换", "取消"],
                             cx
                         );
                         self.replace_prompt = cx.spawn_in(window, async move |picker, cx| {

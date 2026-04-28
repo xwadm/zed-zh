@@ -31,9 +31,9 @@ use workspace::{ModalView, Workspace};
 actions!(
     toolchain,
     [
-        /// Selects a toolchain for the current project.
+        /// 为当前项目选择工具链。
         Select,
-        /// Adds a new toolchain for the current project.
+        /// 为当前项目添加新的工具链。
         AddToolchain
     ]
 );
@@ -73,7 +73,7 @@ struct ScopePickerState {
 
 #[expect(
     dead_code,
-    reason = "These tasks have to be kept alive to run to completion"
+    reason = "这些任务必须保持存活以运行至完成"
 )]
 enum PathInputState {
     WaitingForPath(Task<()>),
@@ -107,7 +107,7 @@ impl AddToolchainState {
             .read(cx)
             .worktree_for_id(root_path.worktree_id, cx)
             .map(|worktree| worktree.read(cx).abs_path())
-            .context("Could not find worktree")?;
+            .context("找不到工作树")?;
         Ok(cx.new(|cx| {
             let (lister, rx) = Self::create_path_browser_delegate(project.clone(), cx);
             let path_style = project.read(cx).path_style(cx);
@@ -175,7 +175,7 @@ impl AddToolchainState {
                                 .p_1()
                                 .justify_between()
                                 .gap_2()
-                                .child(Label::new("Select Toolchain Path").color(Color::Muted).map(
+                                .child(Label::new("选择工具链路径").color(Color::Muted).map(
                                     |this| {
                                         if is_loading {
                                             this.with_animation(
@@ -217,7 +217,7 @@ impl AddToolchainState {
                     })
                     .await;
                 let Ok(toolchain) = toolchain else {
-                    // Go back to the path input state
+                    // 返回路径输入状态
                     _ = this.update_in(cx, |this, window, cx| {
                         if let AddState::Path {
                             input_state,
@@ -239,13 +239,13 @@ impl AddToolchainState {
                             this.focus_handle(cx).focus(window, cx);
                         }
                     });
-                    return Err(anyhow::anyhow!("Failed to resolve toolchain"));
+                    return Err(anyhow::anyhow!("解析工具链失败"));
                 };
                 let resolved_toolchain_path = project.read_with(cx, |this, cx| {
                     this.find_project_path(&toolchain.path.as_ref(), cx)
                 });
 
-                // Suggest a default scope based on the applicability.
+                // 根据适用范围建议默认的作用域。
                 let scope = if let Some(project_path) = resolved_toolchain_path {
                     if !root_path.path.as_ref().is_empty() && project_path.starts_with(&root_path) {
                         let worktree_root_path = project
@@ -253,13 +253,13 @@ impl AddToolchainState {
                                 this.worktree_for_id(root_path.worktree_id, cx)
                                     .map(|worktree| worktree.read(cx).abs_path())
                             })
-                            .context("Could not find a worktree with a given worktree ID")?;
+                            .context("找不到给定工作树 ID 对应的工作树")?;
                         ToolchainScope::Subproject(worktree_root_path, root_path.path)
                     } else {
                         ToolchainScope::Project
                     }
                 } else {
-                    // This path lies outside of the project.
+                    // 此路径位于项目之外。
                     ToolchainScope::Global
                 };
 
@@ -385,12 +385,12 @@ impl Render for AddToolchainState {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
         let weak = self.weak.upgrade();
-        let label = SharedString::new_static("Add");
+        let label = SharedString::new_static("添加");
 
         v_flex()
             .size_full()
-            // todo: These modal styles shouldn't be needed as the modal picker already has `elevation_3`
-            // They get duplicated in the middle state of adding a virtual env, but then are needed for this last state
+            // todo: 这些模态框样式本不应需要，因为模态选择器已具有 `elevation_3`
+            // 它们在添加虚拟环境的中间状态时被重复应用，但在最后这个状态又是必需的
             .bg(cx.theme().colors().elevated_surface_background)
             .border_1()
             .border_color(cx.theme().colors().border_variant)
@@ -435,7 +435,7 @@ impl Render for AddToolchainState {
                             .child(
                                 v_flex()
                                     .child(
-                                        Label::new("Scope")
+                                        Label::new("作用域")
                                             .size(LabelSize::Small)
                                             .color(Color::Muted)
                                             .mt_1()
@@ -793,7 +793,7 @@ impl ToolchainSelectorDelegate {
                 let relative_path = this
                     .update(cx, |this, cx| {
                         this.delegate.add_toolchain_text = format!(
-                            "Add {}",
+                            "添加 {}",
                             meta.term.as_ref().to_case(convert_case::Case::Title)
                         )
                         .into();
@@ -820,13 +820,13 @@ impl ToolchainSelectorDelegate {
                     .await?;
                 let pretty_path = {
                     if relative_path.is_empty() {
-                        Cow::Borrowed("worktree root")
+                        Cow::Borrowed("工作树根")
                     } else {
                         Cow::Owned(format!("`{}`", relative_path.display(path_style)))
                     }
                 };
                 let placeholder_text =
-                    format!("Select a {} for {pretty_path}…", meta.term.to_lowercase(),).into();
+                    format!("为 {pretty_path} 选择 {}…", meta.term.to_lowercase(),).into();
                 let _ = this.update_in(cx, move |this, window, cx| {
                     this.delegate.relative_path = relative_path;
                     this.delegate.placeholder_text = placeholder_text;
@@ -864,7 +864,7 @@ impl ToolchainSelectorDelegate {
                 Some(())
             }
         });
-        let placeholder_text = "Select a toolchain…".to_string().into();
+        let placeholder_text = "选择工具链…".to_string().into();
         Self {
             toolchain_selector,
             candidates: Default::default(),
@@ -878,7 +878,7 @@ impl ToolchainSelectorDelegate {
             _fetch_candidates_task,
             project,
             focus_handle: cx.focus_handle(),
-            add_toolchain_text: Arc::from("Add Toolchain"),
+            add_toolchain_text: Arc::from("添加工具链"),
         }
     }
     fn relativize_path(
@@ -1143,7 +1143,7 @@ impl PickerDelegate for ToolchainSelectorDelegate {
                                 }),
                         )
                         .child(
-                            Button::new("select", "Select")
+                            Button::new("select", "选择")
                                 .key_binding(KeyBinding::for_action_in(
                                     &menu::Confirm,
                                     &self.focus_handle,

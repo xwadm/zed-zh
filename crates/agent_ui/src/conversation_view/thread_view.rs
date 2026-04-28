@@ -2015,10 +2015,10 @@ impl ThreadView {
                         workspace.show_toast(
                             Toast::new(
                                 NotificationId::unique::<ThreadSharedToast>(),
-                                "Thread shared!",
+                                "线程已共享！",
                             )
                             .on_click(
-                                "Copy URL",
+                                "复制 URL",
                                 move |_window, cx| {
                                     cx.write_to_clipboard(ClipboardItem::new_string(
                                         share_url.clone(),

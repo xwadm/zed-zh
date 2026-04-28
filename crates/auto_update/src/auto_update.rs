@@ -273,9 +273,9 @@ pub fn check(_: &Check, window: &mut Window, cx: &mut App) {
     {
         drop(window.prompt(
             gpui::PromptLevel::Info,
-            "Zed was installed via a package manager.",
+            "Zed 是通过包管理器安装的。",
             Some(&message),
-            &["Ok"],
+            &["确定"],
             cx,
         ));
         return;
@@ -293,8 +293,8 @@ pub fn check(_: &Check, window: &mut Window, cx: &mut App) {
     } else {
         drop(window.prompt(
             gpui::PromptLevel::Info,
-            "Could not check for updates",
-            Some("Auto-updates disabled for non-bundled app."),
+            "无法检查更新",
+            Some("非打包应用已禁用自动更新。"),
             &["Ok"],
             cx,
         ));
