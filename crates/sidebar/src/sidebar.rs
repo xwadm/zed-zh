@@ -507,7 +507,7 @@ impl Sidebar {
 
         let filter_editor = cx.new(|cx| {
             let mut editor = Editor::single_line(window, cx);
-            editor.set_placeholder_text("Search…", window, cx);
+            editor.set_placeholder_text("搜索…", window, cx);
             editor
         });
 
@@ -2190,17 +2190,17 @@ impl Sidebar {
 
     fn dispatch_context(&self, window: &Window, cx: &Context<Self>) -> KeyContext {
         let mut dispatch_context = KeyContext::new_with_defaults();
-        dispatch_context.add("线程侧边栏");
-        dispatch_context.add("菜单");
+        dispatch_context.add("ThreadsSidebar");
+        dispatch_context.add("menu");
 
         let is_archived_search_focused = matches!(&self.view, SidebarView::Archive(archive) if archive.read(cx).is_filter_editor_focused(window, cx));
 
         let identifier = if self.filter_editor.focus_handle(cx).is_focused(window)
             || is_archived_search_focused
         {
-            "正在搜索"
+            "searching"
         } else {
-            "未搜索 "
+            "not_searching"
         };
 
         dispatch_context.add(identifier);

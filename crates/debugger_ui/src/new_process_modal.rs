@@ -571,8 +571,8 @@ impl Render for NewProcessModal {
         v_flex()
             .key_context({
                 let mut key_context = KeyContext::new_with_defaults();
-                key_context.add("窗格");
-                key_context.add("运行模态框");
+                key_context.add("Pane");
+                key_context.add("LaunchModal");
                 key_context
             })
             .size_full()

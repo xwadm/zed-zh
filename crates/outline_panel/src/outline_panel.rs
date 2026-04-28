@@ -930,12 +930,12 @@ impl OutlinePanel {
 
     fn dispatch_context(&self, window: &mut Window, cx: &mut Context<Self>) -> KeyContext {
         let mut dispatch_context = KeyContext::new_with_defaults();
-        dispatch_context.add("大纲面板");
-        dispatch_context.add("菜单");
+        dispatch_context.add("OutlinePanel");
+        dispatch_context.add("menu");
         let identifier = if self.filter_editor.focus_handle(cx).is_focused(window) {
-            "编辑中"
+            "editing"
         } else {
-            "未编辑"
+            "not_editing"
         };
         dispatch_context.add(identifier);
         dispatch_context

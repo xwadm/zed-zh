@@ -37,50 +37,40 @@ use workspace::{
 actions!(
     diagnostics,
     [
-        /// Opens the project diagnostics view for the currently focused file.
+        /// 为当前聚焦的文件打开项目诊断视图。
         DeployCurrentFile,
     ]
 );
 
-/// The `BufferDiagnosticsEditor` is meant to be used when dealing specifically
-/// with diagnostics for a single buffer, as only the excerpts of the buffer
-/// where diagnostics are available are displayed.
+/// `BufferDiagnosticsEditor` 专门用于处理单个缓冲区的诊断信息，
+/// 仅显示存在诊断的缓冲区片段。
 pub(crate) struct BufferDiagnosticsEditor {
     pub project: Entity<Project>,
     focus_handle: FocusHandle,
     editor: Entity<Editor>,
-    /// The current diagnostic entries in the `BufferDiagnosticsEditor`. Used to
-    /// allow quick comparison of updated diagnostics, to confirm if anything
-    /// has changed.
+    /// `BufferDiagnosticsEditor` 中当前的诊断条目。用于快速比较更新后的诊断，
+    /// 以确认是否有变化。
     pub(crate) diagnostics: Vec<DiagnosticEntry<Anchor>>,
-    /// The blocks used to display the diagnostics' content in the editor, next
-    /// to the excerpts where the diagnostic originated.
+    /// 用于在编辑器中，紧邻诊断来源片段显示诊断内容的块。
     blocks: Vec<CustomBlockId>,
-    /// Multibuffer to contain all excerpts that contain diagnostics, which are
-    /// to be rendered in the editor.
+    /// 包含所有存在诊断的片段的 MultiBuffer，这些片段将在编辑器中渲染。
     multibuffer: Entity<MultiBuffer>,
-    /// The buffer for which the editor is displaying diagnostics and excerpts
-    /// for.
+    /// 编辑器正在为其显示诊断和片段的缓冲区。
     buffer: Option<Entity<Buffer>>,
-    /// The path for which the editor is displaying diagnostics for.
+    /// 编辑器正在为其显示诊断的路径。
     project_path: ProjectPath,
-    /// Summary of the number of warnings and errors for the path. Used to
-    /// display the number of warnings and errors in the tab's content.
+    /// 该路径上警告和错误数量的摘要。用于在标签页内容中显示警告和错误数量。
     summary: DiagnosticSummary,
-    /// Whether to include warnings in the list of diagnostics shown in the
-    /// editor.
+    /// 是否在编辑器中显示的诊断列表中包含警告。
     pub(crate) include_warnings: bool,
-    /// Keeps track of whether there's a background task already running to
-    /// update the excerpts, in order to avoid firing multiple tasks for this purpose.
+    /// 跟踪是否已有后台任务在更新片段，以避免为此触发多个任务。
     pub(crate) update_excerpts_task: Option<Task<Result<()>>>,
-    /// The project's subscription, responsible for processing events related to
-    /// diagnostics.
+    /// 项目的订阅，负责处理与诊断相关的事件。
     _subscription: Subscription,
 }
 
 impl BufferDiagnosticsEditor {
-    /// Creates new instance of the `BufferDiagnosticsEditor` which can then be
-    /// displayed by adding it to a pane.
+    /// 创建 `BufferDiagnosticsEditor` 的新实例，之后可通过将其添加到面板中来展示。
     pub fn new(
         project_path: ProjectPath,
         project_handle: Entity<Project>,
@@ -89,8 +79,7 @@ impl BufferDiagnosticsEditor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        // Subscribe to project events related to diagnostics so the
-        // `BufferDiagnosticsEditor` can update its state accordingly.
+        // 订阅与诊断相关的项目事件，以便 `BufferDiagnosticsEditor` 可以相应更新其状态。
         let project_event_subscription = cx.subscribe_in(
             &project_handle,
             window,
@@ -105,17 +94,16 @@ impl BufferDiagnosticsEditor {
                     paths,
                     language_server_id,
                 } => {
-                    // When diagnostics have been updated, the
-                    // `BufferDiagnosticsEditor` should update its state only if
-                    // one of the paths matches its `project_path`, otherwise
-                    // the event should be ignored.
+                    // 当诊断更新时，`BufferDiagnosticsEditor` 应仅在其
+                    // `project_path` 匹配路径之一时才更新自身状态，
+                    // 否则应忽略该事件。
                     if paths.contains(&buffer_diagnostics_editor.project_path) {
                         buffer_diagnostics_editor.update_diagnostic_summary(cx);
 
                         if buffer_diagnostics_editor.editor.focus_handle(cx).contains_focused(window, cx) || buffer_diagnostics_editor.focus_handle.contains_focused(window, cx) {
-                            log::debug!("diagnostics updated for server {language_server_id}. recording change");
+                            log::debug!("语言服务器 {language_server_id} 的诊断已更新。记录变更");
                         } else {
-                            log::debug!("diagnostics updated for server {language_server_id}. updating excerpts");
+                            log::debug!("语言服务器 {language_server_id} 的诊断已更新。正在更新片段");
                             buffer_diagnostics_editor.update_all_excerpts(window, cx);
                         }
                     }
@@ -162,8 +150,7 @@ impl BufferDiagnosticsEditor {
             editor
         });
 
-        // Subscribe to events triggered by the editor in order to correctly
-        // update the buffer's excerpts.
+        // 订阅由编辑器触发的事件，以便正确更新缓冲区的片段。
         cx.subscribe_in(
             &editor,
             window,
@@ -171,9 +158,8 @@ impl BufferDiagnosticsEditor {
                 cx.emit(event.clone());
 
                 match event {
-                    // If the user tries to focus on the editor but there's actually
-                    // no excerpts for the buffer, focus back on the
-                    // `BufferDiagnosticsEditor` instance.
+                    // 如果用户尝试聚焦到编辑器，但缓冲区实际上没有任何片段，
+                    // 则将焦点重新放回 `BufferDiagnosticsEditor` 实例上。
                     EditorEvent::Focused => {
                         if buffer_diagnostics_editor.multibuffer.read(cx).is_empty() {
                             window.focus(&buffer_diagnostics_editor.focus_handle, cx);
@@ -215,16 +201,13 @@ impl BufferDiagnosticsEditor {
         window: &mut Window,
         cx: &mut Context<Workspace>,
     ) {
-        // Determine the currently opened path by finding the active editor and
-        // finding the project path for the buffer.
-        // If there's no active editor with a project path, avoiding deploying
-        // the buffer diagnostics view.
+        // 通过查找活动编辑器并确定其缓冲区的项目路径，来获取当前打开的路径。
+        // 如果没有活跃的编辑器具有项目路径，则避免部署缓冲区诊断视图。
         if let Some(editor) = workspace.active_item_as::<Editor>(cx)
             && let Some(project_path) = editor.project_path(cx)
         {
-            // Check if there's already a `BufferDiagnosticsEditor` tab for this
-            // same path, and if so, focus on that one instead of creating a new
-            // one.
+            // 检查是否已存在同一路径的 `BufferDiagnosticsEditor` 标签页，
+            // 如果存在，则聚焦到该标签页，而非创建新的。
             let existing_editor = workspace
                 .items_of_type::<BufferDiagnosticsEditor>(cx)
                 .find(|editor| editor.read(cx).project_path == project_path);
@@ -271,11 +254,9 @@ impl BufferDiagnosticsEditor {
         self.summary = project.diagnostic_summary_for_path(&self.project_path, cx);
     }
 
-    /// Enqueue an update to the excerpts and diagnostic blocks being shown in
-    /// the editor.
+    /// 将编辑器中的片段和诊断块的更新任务加入队列。
     pub(crate) fn update_all_excerpts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        // If there's already a task updating the excerpts, early return and let
-        // the other task finish.
+        // 如果已有任务在更新片段，则提前返回，等待其他任务完成。
         if self.update_excerpts_task.is_some() {
             return;
         }
@@ -304,8 +285,7 @@ impl BufferDiagnosticsEditor {
         }));
     }
 
-    /// Updates the excerpts in the `BufferDiagnosticsEditor` for a single
-    /// buffer.
+    /// 为单个缓冲区更新 `BufferDiagnosticsEditor` 中的片段。
     fn update_excerpts(
         &mut self,
         buffer: Entity<Buffer>,
@@ -321,10 +301,8 @@ impl BufferDiagnosticsEditor {
             .unwrap_or(lsp::DiagnosticSeverity::WARNING);
 
         cx.spawn_in(window, async move |buffer_diagnostics_editor, mut cx| {
-            // Fetch the diagnostics for the whole of the buffer
-            // (`Point::zero()..buffer_snapshot.max_point()`) so we can confirm
-            // if the diagnostics changed, if it didn't, early return as there's
-            // nothing to update.
+            // 获取整个缓冲区的诊断信息（`Point::zero()..buffer_snapshot.max_point()`），
+            // 以确认诊断是否发生变化，若未变化则提前返回，因为无内容需要更新。
             let diagnostics = buffer_snapshot
                 .diagnostics_in_range::<_, Anchor>(Point::zero()..buffer_snapshot_max, false)
                 .collect::<Vec<_>>();
@@ -345,7 +323,7 @@ impl BufferDiagnosticsEditor {
                 return Ok(());
             }
 
-            // Mapping between the Group ID and a vector of DiagnosticEntry.
+            // 将诊断按组 ID 映射到对应的 DiagnosticEntry 向量。
             let mut grouped: HashMap<usize, Vec<_>> = HashMap::default();
             for entry in diagnostics {
                 grouped
@@ -359,9 +337,8 @@ impl BufferDiagnosticsEditor {
 
             let mut blocks: Vec<DiagnosticBlock> = Vec::new();
             for (_, group) in grouped {
-                // If the minimum severity of the group is higher than the
-                // maximum severity, or it doesn't even have severity, skip this
-                // group.
+                // 如果该组的最低严重程度高于允许的最大严重程度，或者根本没有严重程度，
+                // 则跳过此组。
                 if group
                     .iter()
                     .map(|d| d.diagnostic.severity)
@@ -385,13 +362,11 @@ impl BufferDiagnosticsEditor {
                     )
                 })?;
 
-                // For each of the diagnostic blocks to be displayed in the
-                // editor, figure out its index in the list of blocks.
+                // 对于要在编辑器中显示的每个诊断块，确定其在块列表中的顺序。
                 //
-                // The following rules are used to determine the order:
-                // 1. Blocks with a lower start position should come first.
-                // 2. If two blocks have the same start position, the one with
-                // the higher end position should come first.
+                // 排序规则如下：
+                // 1. 起始位置较小的块排在前面。
+                // 2. 如果两个块的起始位置相同，则结束位置较大的块排在前面。
                 for diagnostic_block in diagnostic_blocks {
                     let index = blocks.partition_point(|probe| {
                         match probe
@@ -411,11 +386,8 @@ impl BufferDiagnosticsEditor {
                 }
             }
 
-            // Build the excerpt ranges for this specific buffer's diagnostics,
-            // so those excerpts can later be used to update the excerpts shown
-            // in the editor.
-            // This is done by iterating over the list of diagnostic blocks and
-            // determine what range does the diagnostic block span.
+            // 为当前缓冲区的诊断构建片段范围，以便后续用这些范围更新编辑器中显示的片段。
+            // 这通过遍历诊断块列表，并确定每个诊断块所覆盖的范围来实现。
             let mut excerpt_ranges: Vec<ExcerptRange<_>> = Vec::new();
 
             for diagnostic_block in blocks.iter() {
@@ -467,12 +439,10 @@ impl BufferDiagnosticsEditor {
                 )
             }
 
-            // Finally, update the editor's content with the new excerpt ranges
-            // for this editor, as well as the diagnostic blocks.
+            // 最后，用新的片段范围和诊断块更新编辑器的内容。
             buffer_diagnostics_editor.update_in(cx, |buffer_diagnostics_editor, window, cx| {
-                // Remove the list of `CustomBlockId` from the editor's display
-                // map, ensuring that if any diagnostics have been solved, the
-                // associated block stops being shown.
+                // 从编辑器的显示映射中移除当前的所有 `CustomBlockId`，确保若任何诊断已被解决，
+                // 相关联的块将不再显示。
                 let block_ids = buffer_diagnostics_editor.blocks.clone();
 
                 buffer_diagnostics_editor.editor.update(cx, |editor, cx| {
@@ -521,8 +491,7 @@ impl BufferDiagnosticsEditor {
                             })
                         });
 
-                        // If the `BufferDiagnosticsEditor` is currently
-                        // focused, move focus to its editor.
+                        // 如果 `BufferDiagnosticsEditor` 当前处于聚焦状态，则将焦点移至其编辑器。
                         if buffer_diagnostics_editor.focus_handle.is_focused(window) {
                             buffer_diagnostics_editor
                                 .editor
@@ -533,15 +502,12 @@ impl BufferDiagnosticsEditor {
                     }
                 }
 
-                // Cloning the blocks before moving ownership so these can later
-                // be used to set the block contents for testing purposes.
+                // 克隆块数据后转移所有权，以便后续在测试中用于设置块内容。
                 #[cfg(test)]
                 let cloned_blocks = blocks.clone();
 
-                // Build new diagnostic blocks to be added to the editor's
-                // display map for the new diagnostics. Update the `blocks`
-                // property before finishing, to ensure the blocks are removed
-                // on the next execution.
+                // 为新的诊断构建将添加到编辑器显示映射中的诊断块。
+                // 在结束前更新 `blocks` 属性，以确保下次执行时可以移除这些块。
                 let editor_blocks =
                     anchor_ranges
                         .into_iter()
@@ -566,11 +532,9 @@ impl BufferDiagnosticsEditor {
                     })
                 });
 
-                // In order to be able to verify which diagnostic blocks are
-                // rendered in the editor, the `set_block_content_for_tests`
-                // function must be used, so that the
-                // `editor::test::editor_content_with_blocks` function can then
-                // be called to fetch these blocks.
+                // 为了能够验证编辑器中渲染了哪些诊断块，必须使用
+                // `set_block_content_for_tests` 函数，这样
+                // `editor::test::editor_content_with_blocks` 函数才能随后被调用以获取这些块。
                 #[cfg(test)]
                 {
                     for (block_id, block) in block_ids.iter().zip(cloned_blocks.iter()) {
@@ -624,9 +588,8 @@ impl BufferDiagnosticsEditor {
     }
 
     fn focus_in(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        // If the `BufferDiagnosticsEditor` is focused and the multibuffer is
-        // not empty, focus on the editor instead, which will allow the user to
-        // start interacting and editing the buffer's contents.
+        // 当 `BufferDiagnosticsEditor` 获得焦点且 MultiBuffer 非空时，
+        // 将焦点转移给编辑器，以便用户可以开始交互和编辑缓冲区内容。
         if self.focus_handle.is_focused(window) && !self.multibuffer.read(cx).is_empty() {
             self.editor.focus_handle(cx).focus(window, cx)
         }
@@ -816,7 +779,7 @@ impl Item for BufferDiagnosticsEditor {
         })
     }
 
-    // Builds the content to be displayed in the tab.
+    // 构建要在标签页中显示的内容。
     fn tab_content(&self, params: TabContentParams, _window: &Window, cx: &App) -> AnyElement {
         let path_style = self.project.read(cx).path_style(cx);
         let error_count = self.summary.error_count;
@@ -894,8 +857,8 @@ impl Render for BufferDiagnosticsEditor {
 
         let child = if error_count + warning_count == 0 {
             let label = match warning_count {
-                0 => "No problems in",
-                _ => "No errors in",
+                0 => "没有发现问题",
+                _ => "没有发现错误",
             };
 
             v_flex()
@@ -913,7 +876,7 @@ impl Render for BufferDiagnosticsEditor {
                         .child(
                             Button::new("open-file", filename)
                                 .style(ButtonStyle::Transparent)
-                                .tooltip(Tooltip::text("Open File"))
+                                .tooltip(Tooltip::text("打开文件"))
                                 .on_click(cx.listener(|buffer_diagnostics, _, window, cx| {
                                     if let Some(workspace) = Workspace::for_window(window, cx) {
                                         workspace.update(cx, |workspace, cx| {
@@ -933,8 +896,8 @@ impl Render for BufferDiagnosticsEditor {
                 )
                 .when(self.summary.warning_count > 0, |div| {
                     let label = match self.summary.warning_count {
-                        1 => "Show 1 warning".into(),
-                        warning_count => format!("Show {} warnings", warning_count),
+                        1 => "显示 1 条警告".into(),
+                        warning_count => format!("显示 {} 条警告", warning_count),
                     };
 
                     div.child(

@@ -1019,7 +1019,7 @@ impl Dock {
 
     fn dispatch_context() -> KeyContext {
         let mut dispatch_context = KeyContext::new_with_defaults();
-        dispatch_context.add("停靠栏");
+        dispatch_context.add("Dock");
 
         dispatch_context
     }

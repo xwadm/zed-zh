@@ -1,21 +1,21 @@
 use time::{OffsetDateTime, UtcOffset};
 
-/// The formatting style for a timestamp.
+/// 时间戳的格式化风格。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TimestampFormat {
-    /// Formats the timestamp as an absolute time, e.g. "2021-12-31 3:00AM".
+    /// 格式化为绝对时间，例如 "2021-12-31 3:00AM"。
     Absolute,
-    /// Formats the timestamp as an absolute time.
-    /// If the message is from today or yesterday the date will be replaced with "Today at x" or "Yesterday at x" respectively.
-    /// E.g. "Today at 12:00 PM", "Yesterday at 11:00 AM", "2021-12-31 3:00AM".
+    /// 格式化为绝对时间。
+    /// 如果消息来自今天或昨天，日期将分别替换为 "Today at x" 或 "Yesterday at x"。
+    /// 例如 "Today at 12:00 PM", "Yesterday at 11:00 AM", "2021-12-31 3:00AM"。
     EnhancedAbsolute,
-    /// Formats the timestamp as an absolute time, using month name, day of month, year. e.g. "Feb. 24, 2024".
+    /// 使用月份名称、日期和年份格式化为绝对时间，例如 "Feb. 24, 2024"。
     MediumAbsolute,
-    /// Formats the timestamp as a relative time, e.g. "just now", "1 minute ago", "2 hours ago", "2 months ago".
+    /// 格式化为相对时间，例如 "just now"、"1 minute ago"、"2 hours ago"、"2 months ago"。
     Relative,
 }
 
-/// Formats a timestamp, which respects the user's date and time preferences/custom format.
+/// 格式化时间戳，遵循用户的日期和时间偏好/自定义格式。
 pub fn format_localized_timestamp(
     timestamp: OffsetDateTime,
     reference: OffsetDateTime,
@@ -27,7 +27,7 @@ pub fn format_localized_timestamp(
     format_local_timestamp(timestamp_local, reference_local, format)
 }
 
-/// Formats a timestamp, which respects the user's date and time preferences/custom format.
+/// 格式化时间戳，遵循用户的日期和时间偏好/自定义格式。
 pub fn format_local_timestamp(
     timestamp: OffsetDateTime,
     reference: OffsetDateTime,
@@ -42,7 +42,7 @@ pub fn format_local_timestamp(
     }
 }
 
-/// Formats the date component of a timestamp
+/// 格式化时间戳的日期部分。
 pub fn format_date(
     timestamp: OffsetDateTime,
     reference: OffsetDateTime,
@@ -51,12 +51,12 @@ pub fn format_date(
     format_absolute_date(timestamp, reference, enhanced_formatting)
 }
 
-/// Formats the time component of a timestamp
+/// 格式化时间戳的时间部分。
 pub fn format_time(timestamp: OffsetDateTime) -> String {
     format_absolute_time(timestamp)
 }
 
-/// Formats the date component of a timestamp in medium style
+/// 以中等风格格式化时间戳的日期部分。
 pub fn format_date_medium(
     timestamp: OffsetDateTime,
     reference: OffsetDateTime,
@@ -104,7 +104,7 @@ fn format_absolute_date(
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        // todo(linux) respect user's date/time preferences
+        // todo(linux) 遵循用户的日期/时间偏好
         let current_locale = CURRENT_LOCALE
             .get_or_init(|| sys_locale::get_locale().unwrap_or_else(|| String::from("en-US")));
         format_timestamp_naive_date(
@@ -126,7 +126,7 @@ fn format_absolute_time(timestamp: OffsetDateTime) -> String {
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        // todo(linux) respect user's date/time preferences
+        // todo(linux) 遵循用户的日期/时间偏好
         let current_locale = CURRENT_LOCALE
             .get_or_init(|| sys_locale::get_locale().unwrap_or_else(|| String::from("en-US")));
         format_timestamp_naive_time(
@@ -167,7 +167,7 @@ fn format_absolute_timestamp(
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        // todo(linux) respect user's date/time preferences
+        // todo(linux) 遵循用户的日期/时间偏好
         format_timestamp_fallback(timestamp, reference)
     }
 }
@@ -211,7 +211,7 @@ fn format_absolute_date_medium(
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        // todo(linux) respect user's date/time preferences
+        // todo(linux) 遵循用户的日期/时间偏好
         let current_locale = CURRENT_LOCALE
             .get_or_init(|| sys_locale::get_locale().unwrap_or_else(|| String::from("en-US")));
         if !enhanced_formatting {
@@ -250,8 +250,8 @@ fn format_absolute_timestamp_medium(
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        // todo(linux) respect user's date/time preferences
-        // todo(windows) respect user's date/time preferences
+        // todo(linux) 遵循用户的日期/时间偏好
+        // todo(windows) 遵循用户的日期/时间偏好
         format_timestamp_fallback(timestamp, reference)
     }
 }
@@ -307,8 +307,8 @@ fn format_relative_date(timestamp: OffsetDateTime, reference: OffsetDateTime) ->
     }
 }
 
-/// Calculates the difference in months between two timestamps.
-/// The reference timestamp should always be greater than the timestamp.
+/// 计算两个时间戳之间的月份差。
+/// 参考时间戳应始终大于给定时间戳。
 fn calculate_month_difference(timestamp: OffsetDateTime, reference: OffsetDateTime) -> usize {
     let timestamp_year = timestamp.year();
     let reference_year = reference.year();
@@ -333,10 +333,10 @@ fn calculate_month_difference(timestamp: OffsetDateTime, reference: OffsetDateTi
     }
 }
 
-/// Formats a timestamp, which is either in 12-hour or 24-hour time format.
-/// Note:
-/// This function does not respect the user's date and time preferences.
-/// This should only be used as a fallback mechanism when the OS time formatting fails.
+/// 格式化时间戳，采用 12 小时制或 24 小时制。
+/// 注意：
+/// 此函数不遵循用户的日期和时间偏好。
+/// 仅应在操作系统时间格式化失败时用作后备机制。
 fn format_timestamp_naive_time(timestamp_local: OffsetDateTime, is_12_hour_time: bool) -> String {
     let timestamp_local_hour = timestamp_local.hour();
     let timestamp_local_minute = timestamp_local.minute();
@@ -349,9 +349,9 @@ fn format_timestamp_naive_time(timestamp_local: OffsetDateTime, is_12_hour_time:
         };
 
         let hour_12 = match timestamp_local_hour {
-            0 => 12,                              // Midnight
-            13..=23 => timestamp_local_hour - 12, // PM hours
-            _ => timestamp_local_hour,            // AM hours
+            0 => 12,                              // 午夜
+            13..=23 => timestamp_local_hour - 12, // 下午
+            _ => timestamp_local_hour,            // 上午
         };
 
         (hour_12, Some(meridiem))
@@ -463,20 +463,20 @@ fn format_timestamp_fallback(timestamp: OffsetDateTime, reference: OffsetDateTim
     format_timestamp_naive(timestamp, reference, is_12_hour_time)
 }
 
-/// Returns `true` if the locale is recognized as a 12-hour time locale.
+/// 如果区域设置被识别为 12 小时制区域，返回 `true`。
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 fn is_12_hour_time_by_locale(locale: &str) -> bool {
     [
         "es-MX", "es-CO", "es-SV", "es-NI",
-        "es-HN", // Mexico, Colombia, El Salvador, Nicaragua, Honduras
-        "en-US", "en-CA", "en-AU", "en-NZ", // U.S, Canada, Australia, New Zealand
-        "ar-SA", "ar-EG", "ar-JO", // Saudi Arabia, Egypt, Jordan
-        "en-IN", "hi-IN", // India, Hindu
-        "en-PK", "ur-PK", // Pakistan, Urdu
-        "en-PH", "fil-PH", // Philippines, Filipino
-        "bn-BD", "ccp-BD", // Bangladesh, Chakma
-        "en-IE", "ga-IE", // Ireland, Irish
-        "en-MY", "ms-MY", // Malaysia, Malay
+        "es-HN", // 墨西哥，哥伦比亚，萨尔瓦多，尼加拉瓜，洪都拉斯
+        "en-US", "en-CA", "en-AU", "en-NZ", // 美国，加拿大，澳大利亚，新西兰
+        "ar-SA", "ar-EG", "ar-JO", // 沙特阿拉伯，埃及，约旦
+        "en-IN", "hi-IN", // 印度，印地语
+        "en-PK", "ur-PK", // 巴基斯坦，乌尔都语
+        "en-PH", "fil-PH", // 菲律宾，菲律宾语
+        "bn-BD", "ccp-BD", // 孟加拉国，查克玛语
+        "en-IE", "ga-IE", // 爱尔兰，爱尔兰语
+        "en-MY", "ms-MY", // 马来西亚，马来语
     ]
     .contains(&locale)
 }
@@ -514,8 +514,8 @@ mod macos {
         timestamp: &time::OffsetDateTime,
         fmt: CFDateFormatterRef,
     ) -> String {
+        // UNIX 时间戳到 macOS 绝对时间的偏移量
         const UNIX_TO_CF_ABSOLUTE_TIME_OFFSET: i64 = 978307200;
-        // Convert timestamp to macOS absolute time
         let timestamp_macos = timestamp.unix_timestamp() - UNIX_TO_CF_ABSOLUTE_TIME_OFFSET;
         let cf_absolute_time = timestamp_macos as CFAbsoluteTime;
         unsafe {
@@ -598,7 +598,7 @@ mod windows {
     }
 
     fn to_winrt_datetime(timestamp: &time::OffsetDateTime) -> windows::Foundation::DateTime {
-        // DateTime uses 100-nanosecond intervals since January 1, 1601 (UTC).
+        // DateTime 使用自 1601年1月1日 (UTC) 以来的 100 纳秒间隔。
         const WINDOWS_EPOCH: time::OffsetDateTime = time::macros::datetime!(1601-01-01 0:00 UTC);
         let duration_since_winrt_epoch = *timestamp - WINDOWS_EPOCH;
         let universal_time = duration_since_winrt_epoch.whole_nanoseconds() / 100;
@@ -617,18 +617,18 @@ mod tests {
     fn test_format_date() {
         let reference = create_offset_datetime(1990, 4, 12, 10, 30, 0);
 
-        // Test with same date (today)
+        // 测试同一天（今天）
         let timestamp_today = create_offset_datetime(1990, 4, 12, 9, 30, 0);
         assert_eq!(format_date(timestamp_today, reference, true), "Today");
 
-        // Test with previous day (yesterday)
+        // 测试前一天（昨天）
         let timestamp_yesterday = create_offset_datetime(1990, 4, 11, 9, 30, 0);
         assert_eq!(
             format_date(timestamp_yesterday, reference, true),
             "Yesterday"
         );
 
-        // Test with other date
+        // 测试其他日期
         let timestamp_other = create_offset_datetime(1990, 4, 10, 9, 30, 0);
         let result = format_date(timestamp_other, reference, true);
         assert!(!result.is_empty());
@@ -640,8 +640,8 @@ mod tests {
     fn test_format_time() {
         let timestamp = create_offset_datetime(1990, 4, 12, 9, 30, 0);
 
-        // We can't assert the exact output as it depends on the platform and locale
-        // But we can at least confirm it doesn't panic and returns a non-empty string
+        // 无法断言确切的输出，因为它取决于平台和区域设置
+        // 但至少可以确认它没有 panic 并返回了非空字符串
         let result = format_time(timestamp);
         assert!(!result.is_empty());
     }
@@ -651,20 +651,20 @@ mod tests {
         let reference = create_offset_datetime(1990, 4, 12, 10, 30, 0);
         let timestamp = create_offset_datetime(1990, 4, 12, 9, 30, 0);
 
-        // Test with enhanced formatting (today)
+        // 测试增强格式化（今天）
         let result_enhanced = format_date_medium(timestamp, reference, true);
         assert_eq!(result_enhanced, "Today");
 
-        // Test with standard formatting
+        // 测试标准格式化
         let result_standard = format_date_medium(timestamp, reference, false);
         assert!(!result_standard.is_empty());
 
-        // Test yesterday with enhanced formatting
+        // 测试增强格式下的昨天
         let timestamp_yesterday = create_offset_datetime(1990, 4, 11, 9, 30, 0);
         let result_yesterday = format_date_medium(timestamp_yesterday, reference, true);
         assert_eq!(result_yesterday, "Yesterday");
 
-        // Test other date with enhanced formatting
+        // 测试增强格式下的其他日期
         let timestamp_other = create_offset_datetime(1990, 4, 10, 9, 30, 0);
         let result_other = format_date_medium(timestamp_other, reference, true);
         assert!(!result_other.is_empty());
@@ -676,8 +676,8 @@ mod tests {
     fn test_format_absolute_time() {
         let timestamp = create_offset_datetime(1990, 4, 12, 9, 30, 0);
 
-        // We can't assert the exact output as it depends on the platform and locale
-        // But we can at least confirm it doesn't panic and returns a non-empty string
+        // 无法断言确切的输出，因为它取决于平台和区域设置
+        // 但至少可以确认它没有 panic 并返回了非空字符串
         let result = format_absolute_time(timestamp);
         assert!(!result.is_empty());
     }
@@ -686,21 +686,21 @@ mod tests {
     fn test_format_absolute_date() {
         let reference = create_offset_datetime(1990, 4, 12, 10, 30, 0);
 
-        // Test with same date (today)
+        // 测试同一天（今天）
         let timestamp_today = create_offset_datetime(1990, 4, 12, 9, 30, 0);
         assert_eq!(
             format_absolute_date(timestamp_today, reference, true),
             "Today"
         );
 
-        // Test with previous day (yesterday)
+        // 测试前一天（昨天）
         let timestamp_yesterday = create_offset_datetime(1990, 4, 11, 9, 30, 0);
         assert_eq!(
             format_absolute_date(timestamp_yesterday, reference, true),
             "Yesterday"
         );
 
-        // Test with other date
+        // 测试其他日期
         let timestamp_other = create_offset_datetime(1990, 4, 10, 9, 30, 0);
         let result = format_absolute_date(timestamp_other, reference, true);
         assert!(!result.is_empty());
@@ -713,15 +713,15 @@ mod tests {
         let reference = create_offset_datetime(1990, 4, 12, 10, 30, 0);
         let timestamp = create_offset_datetime(1990, 4, 12, 9, 30, 0);
 
-        // Test with enhanced formatting (today)
+        // 测试增强格式化（今天）
         let result_enhanced = format_absolute_date_medium(timestamp, reference, true);
         assert_eq!(result_enhanced, "Today");
 
-        // Test with standard formatting
+        // 测试标准格式化
         let result_standard = format_absolute_date_medium(timestamp, reference, false);
         assert!(!result_standard.is_empty());
 
-        // Test yesterday with enhanced formatting
+        // 测试增强格式下的昨天
         let timestamp_yesterday = create_offset_datetime(1990, 4, 11, 9, 30, 0);
         let result_yesterday = format_absolute_date_medium(timestamp_yesterday, reference, true);
         assert_eq!(result_yesterday, "Yesterday");
@@ -999,55 +999,55 @@ mod tests {
     fn test_relative_format_years() {
         let reference = create_offset_datetime(1990, 4, 12, 23, 0, 0);
 
-        // 12 months
+        // 12 个月
         assert_eq!(
             format_relative_date(create_offset_datetime(1989, 4, 12, 23, 0, 0), reference),
             "1 year ago"
         );
 
-        // 13 months
+        // 13 个月
         assert_eq!(
             format_relative_date(create_offset_datetime(1989, 3, 12, 23, 0, 0), reference),
             "1 year ago"
         );
 
-        // 23 months
+        // 23 个月
         assert_eq!(
             format_relative_date(create_offset_datetime(1988, 5, 12, 23, 0, 0), reference),
             "1 year ago"
         );
 
-        // 24 months
+        // 24 个月
         assert_eq!(
             format_relative_date(create_offset_datetime(1988, 4, 12, 23, 0, 0), reference),
             "2 years ago"
         );
 
-        // 25 months
+        // 25 个月
         assert_eq!(
             format_relative_date(create_offset_datetime(1988, 3, 12, 23, 0, 0), reference),
             "2 years ago"
         );
 
-        // 35 months
+        // 35 个月
         assert_eq!(
             format_relative_date(create_offset_datetime(1987, 5, 12, 23, 0, 0), reference),
             "2 years ago"
         );
 
-        // 36 months
+        // 36 个月
         assert_eq!(
             format_relative_date(create_offset_datetime(1987, 4, 12, 23, 0, 0), reference),
             "3 years ago"
         );
 
-        // 37 months
+        // 37 个月
         assert_eq!(
             format_relative_date(create_offset_datetime(1987, 3, 12, 23, 0, 0), reference),
             "3 years ago"
         );
 
-        // 120 months
+        // 120 个月
         assert_eq!(
             format_relative_date(create_offset_datetime(1980, 4, 12, 23, 0, 0), reference),
             "10 years ago"
@@ -1097,7 +1097,7 @@ mod tests {
     }
 
     fn test_timezone() -> UtcOffset {
-        UtcOffset::from_hms(0, 0, 0).expect("Valid timezone offset")
+        UtcOffset::from_hms(0, 0, 0).expect("有效的时区偏移")
     }
 
     fn create_offset_datetime(
@@ -1111,7 +1111,7 @@ mod tests {
         let date = time::Date::from_calendar_date(year, time::Month::try_from(month).unwrap(), day)
             .unwrap();
         let time = time::Time::from_hms(hour, minute, second).unwrap();
-        let date = date.with_time(time).assume_utc(); // Assume UTC for simplicity
+        let date = date.with_time(time).assume_utc(); // 简单起见，假设为 UTC
         date.to_offset(test_timezone())
     }
 }

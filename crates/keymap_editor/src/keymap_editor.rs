@@ -2497,7 +2497,7 @@ impl KeybindingEditorModal {
 
         let context_editor: Entity<InputField> = cx.new(|cx| {
             let input = InputField::new(window, cx, "Keybinding Context")
-                .label("Edit Context")
+                .label("编辑上下文")
                 .label_size(LabelSize::Default);
 
             if let Some(context) = editing_keybind
@@ -2957,7 +2957,7 @@ None => {
 
     fn key_context(&self) -> KeyContext {
     let mut key_context = KeyContext::new_with_defaults();
-    key_context.add("快捷键编辑器弹窗");
+    key_context.add("KeymapEditor");
     key_context
 }
 
@@ -2965,7 +2965,7 @@ fn key_context_internal(&self, window: &Window, cx: &App) -> KeyContext {
     let mut key_context = self.key_context();
 
     if self.is_any_editor_showing_completions(window, cx) {
-        key_context.add("显示补全项");
+        key_context.add("showing_completions");
     }
 
     key_context
@@ -3051,7 +3051,7 @@ impl Render for KeybindingEditorModal {
         let theme = cx.theme().colors();
         let matching_bindings_count = self.get_matching_bindings_count(cx);
         let key_context = self.key_context_internal(window, cx);
-        let showing_completions = key_context.contains("显示补全项");
+        let showing_completions = key_context.contains("showing_completions");
 
         v_flex()
             .w(rems(34.))
@@ -3064,7 +3064,7 @@ impl Render for KeybindingEditorModal {
                     .on_action(cx.listener(Self::focus_prev))
             })
             .child(
-                Modal::new("快捷键编辑器弹窗", None)
+                Modal::new("KeybindEditorModal", None)
                     .header(
                         ModalHeader::new().child(
                             v_flex()

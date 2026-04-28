@@ -691,7 +691,7 @@ pub(crate) fn commit_message_editor(
     commit_editor.set_use_modal_editing(true);
     commit_editor.set_show_wrap_guides(false, cx);
     commit_editor.set_show_indent_guides(false, cx);
-    let placeholder = placeholder.unwrap_or("Enter commit message".into());
+    let placeholder = placeholder.unwrap_or("输入提交信息".into());
     commit_editor.set_placeholder_text(&placeholder, window, cx);
     commit_editor
 }
@@ -971,18 +971,18 @@ impl GitPanel {
     fn dispatch_context(&self, window: &mut Window, cx: &Context<Self>) -> KeyContext {
         let mut dispatch_context = KeyContext::new_with_defaults();
         // 添加当前上下文标识：Git 面板
-        dispatch_context.add("Git面板");
+        dispatch_context.add("GitPanel");
 
         // 如果提交编辑器处于聚焦状态
         if self.commit_editor.read(cx).is_focused(window) {
-            dispatch_context.add("提交编辑器");
+            dispatch_context.add("CommitEditor");
         } 
         // 如果变更列表控件处于聚焦状态
         else if self.focus_handle.contains_focused(window, cx) {
             // 添加菜单上下文
-            dispatch_context.add("菜单");
+            dispatch_context.add("menu");
             // 添加变更列表上下文
-            dispatch_context.add("变更列表");
+            dispatch_context.add("ChangesList");
         }
 
         dispatch_context
@@ -2422,7 +2422,7 @@ impl GitPanel {
                     pushed_to.into_iter().join(", ")
                 );
                 let result = cx
-                    .update(|window, cx| prompt("Are you sure?", Some(&detail), window, cx))?
+                    .update(|window, cx| prompt("确定要撤销提交吗？", Some(&detail), window, cx))?
                     .await?;
 
                 match result {
@@ -5061,16 +5061,16 @@ impl GitPanel {
                 .action(restore_title, git::RestoreFile::default().boxed_clone())
                 .action_disabled_when(
                     !is_created,
-                    "Add to .gitignore",
+                    "添加到 .gitignore",
                     git::AddToGitignore.boxed_clone(),
                 )
                 .separator()
-                .action("Open Diff", menu::Confirm.boxed_clone())
-                .action("Open File", menu::SecondaryConfirm.boxed_clone())
+                .action("打开差异对比", menu::Confirm.boxed_clone())
+                .action("打开文件", menu::SecondaryConfirm.boxed_clone())
                 .when(!is_created, |context_menu| {
                     context_menu
                         .separator()
-                        .action("View File History", Box::new(git::FileHistory))
+                        .action("查看文件历史", Box::new(git::FileHistory))
                 })
         });
         self.selected_entry = Some(ix);

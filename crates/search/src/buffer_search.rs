@@ -536,9 +536,9 @@ impl Render for BufferSearchBar {
         });
 
         let mut key_context = KeyContext::new_with_defaults();
-        key_context.add("缓冲区搜索栏");
+        key_context.add("BufferSearchBar");
         if in_replace {
-            key_context.add("替换模式");
+            key_context.add("in_replace");
         }
 
         let query_error_line = self.query_error.as_ref().map(|error| {

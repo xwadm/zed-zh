@@ -223,7 +223,7 @@ impl GitPicker {
                     )
                     .tooltip(move |_, cx| {
                         Tooltip::for_action_in(
-                            "Toggle Stash Picker",
+                            "切换储藏选择器",
                             &ActivateStashTab,
                             &stash_focus_handle,
                             cx,
@@ -370,11 +370,11 @@ impl Render for GitPicker {
             })
             .key_context({
                 let mut key_context = KeyContext::new_with_defaults();
-                key_context.add("面板");
-                key_context.add("Git选择器");
+                key_context.add("panel");
+                key_context.add("GitPicker");
                 match self.tab {
-                    GitPickerTab::Branches => key_context.add("Git分支选择器"),
-                    GitPickerTab::Stash => key_context.add("储藏列表"),
+                    GitPickerTab::Branches => key_context.add("GitBranchSelector"),
+                    GitPickerTab::Stash => key_context.add("stash_list"),
                 }
                 key_context
             })

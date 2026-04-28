@@ -4276,9 +4276,9 @@ impl Focusable for Pane {
 impl Render for Pane {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let mut key_context = KeyContext::new_with_defaults();
-        key_context.add("窗格");
+        key_context.add("Pane");
         if self.active_item().is_none() {
-            key_context.add("空窗格");
+            key_context.add("empty_pane");
         }
 
         self.toolbar

@@ -2580,10 +2580,10 @@ impl SettingsWindow {
         };
 
         let mut key_context = KeyContext::new_with_defaults();
-        key_context.add("导航菜单");
-        key_context.add("菜单");
+        key_context.add("nav_menu");
+        key_context.add("menu");
         if self.search_bar.focus_handle(cx).is_focused(window) {
-            key_context.add("搜索");
+            key_context.add("search");
         }
 
         v_flex()

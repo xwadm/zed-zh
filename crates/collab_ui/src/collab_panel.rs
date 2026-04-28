@@ -2372,15 +2372,15 @@ impl CollabPanel {
 
     fn dispatch_context(&self, window: &Window, cx: &Context<Self>) -> KeyContext {
         let mut dispatch_context = KeyContext::new_with_defaults();
-        dispatch_context.add("协作面板");
-        dispatch_context.add("菜单");
+        dispatch_context.add("CollabPanel");
+        dispatch_context.add("menu");
 
         let identifier = if self.channel_name_editor.focus_handle(cx).is_focused(window)
             || self.filter_editor.focus_handle(cx).is_focused(window)
         {
-            "编辑中"
+            "editing"
         } else {
-            "未编辑"
+            "not_editing"
         };
 
         dispatch_context.add(identifier);
@@ -2989,7 +2989,7 @@ impl CollabPanel {
                     .justify_between()
                     .child(render_participant_name_and_handle(&contact.user))
                     .when(calling, |el| {
-                        el.child(Label::new("Calling").color(Color::Muted))
+                        el.child(Label::new("正在呼叫").color(Color::Muted))
                     })
                     .when(!calling, |el| {
                         el.child(
@@ -3916,7 +3916,7 @@ impl Render for JoinChannelTooltip {
                 .channel_participants(self.channel_id);
 
             container
-                .child(Label::new("Join Channel"))
+                .child(Label::new("加入频道"))
                 .children(participants.iter().map(|participant| {
                     h_flex()
                         .gap_2()

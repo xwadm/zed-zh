@@ -35,8 +35,8 @@ use gpui::{Pixels, Point, px};
 #[cfg(any(feature = "wayland", feature = "x11"))]
 pub(crate) const SCROLL_LINES: f32 = 3.0;
 
-// Values match the defaults on GTK.
-// Taken from https://github.com/GNOME/gtk/blob/main/gtk/gtksettings.c#L320
+// 这些值与 GTK 的默认值一致。
+// 取自 https://github.com/GNOME/gtk/blob/main/gtk/gtksettings.c#L320
 #[cfg(any(feature = "wayland", feature = "x11"))]
 pub(crate) const DOUBLE_CLICK_INTERVAL: Duration = Duration::from_millis(400);
 #[cfg(any(feature = "wayland", feature = "x11"))]
@@ -45,7 +45,7 @@ pub(crate) const KEYRING_LABEL: &str = "zed-github-account";
 
 #[cfg(any(feature = "wayland", feature = "x11"))]
 const FILE_PICKER_PORTAL_MISSING: &str =
-    "Couldn't open file picker due to missing xdg-desktop-portal implementation.";
+    "无法打开文件选择器，因为缺少 xdg-desktop-portal 实现。";
 
 pub(crate) trait LinuxClient {
     fn compositor_name(&self) -> &'static str;
@@ -68,7 +68,7 @@ pub(crate) trait LinuxClient {
         let (sources_tx, sources_rx) = oneshot::channel();
         sources_tx
             .send(Err(anyhow::anyhow!(
-                "gpui_linux was compiled without the screen-capture feature"
+                "gpui_linux 在编译时未包含 screen-capture 功能"
             )))
             .ok();
         sources_rx
@@ -214,25 +214,25 @@ impl<P: LinuxClient + 'static> Platform for LinuxPlatform<P> {
     fn restart(&self, binary_path: Option<PathBuf>) {
         use std::os::unix::process::CommandExt as _;
 
-        // get the process id of the current process
+        // 获取当前进程的进程 ID
         let app_pid = std::process::id().to_string();
-        // get the path to the executable
+        // 获取可执行文件路径
         let app_path = if let Some(path) = binary_path {
             path
         } else {
             match self.app_path() {
                 Ok(path) => path,
                 Err(err) => {
-                    log::error!("Failed to get app path: {:?}", err);
+                    log::error!("获取应用路径失败: {:?}", err);
                     return;
                 }
             }
         };
 
-        log::info!("Restarting process, using app path: {:?}", app_path);
+        log::info!("正在重启进程，应用路径: {:?}", app_path);
 
-        // Script to wait for the current process to exit and then restart the app.
-        // Pass dynamic values as positional parameters to avoid shell interpolation issues.
+        // 等待当前进程退出后重启应用的脚本。
+        // 将动态值作为位置参数传递，以避免 shell 插值问题。
         let script = r#"
             while kill -0 "$0" 2>/dev/null; do
                 sleep 0.1
@@ -243,7 +243,7 @@ impl<P: LinuxClient + 'static> Platform for LinuxPlatform<P> {
 
         #[allow(
             clippy::disallowed_methods,
-            reason = "We are restarting ourselves, using std command thus is fine"
+            reason = "我们在重启自身，使用 std command 是可以的"
         )]
         let restart_process = new_std_command("/usr/bin/env")
             .arg("bash")
@@ -256,24 +256,24 @@ impl<P: LinuxClient + 'static> Platform for LinuxPlatform<P> {
 
         match restart_process {
             Ok(_) => self.quit(),
-            Err(e) => log::error!("failed to spawn restart script: {:?}", e),
+            Err(e) => log::error!("启动重启脚本失败: {:?}", e),
         }
     }
 
     fn activate(&self, _ignoring_other_apps: bool) {
-        log::info!("activate is not implemented on Linux, ignoring the call")
+        log::info!("activate 在 Linux 上尚未实现，忽略该调用")
     }
 
     fn hide(&self) {
-        log::info!("hide is not implemented on Linux, ignoring the call")
+        log::info!("hide 在 Linux 上尚未实现，忽略该调用")
     }
 
     fn hide_other_apps(&self) {
-        log::info!("hide_other_apps is not implemented on Linux, ignoring the call")
+        log::info!("hide_other_apps 在 Linux 上尚未实现，忽略该调用")
     }
 
     fn unhide_other_apps(&self) {
-        log::info!("unhide_other_apps is not implemented on Linux, ignoring the call")
+        log::info!("unhide_other_apps 在 Linux 上尚未实现，忽略该调用")
     }
 
     fn primary_display(&self) -> Option<Rc<dyn PlatformDisplay>> {
@@ -337,9 +337,9 @@ impl<P: LinuxClient + 'static> Platform for LinuxPlatform<P> {
         self.foreground_executor()
             .spawn(async move {
                 let title = if options.directories {
-                    "Open Folder"
+                    "打开文件夹"
                 } else {
-                    "Open File"
+                    "打开文件"
                 };
 
                 let request = match ashpd::desktop::file_chooser::OpenFileRequest::default()
@@ -405,7 +405,7 @@ impl<P: LinuxClient + 'static> Platform for LinuxPlatform<P> {
                         ashpd::desktop::file_chooser::SaveFileRequest::default()
                             .identifier(identifier.await)
                             .modal(true)
-                            .title("Save File")
+                            .title("保存文件")
                             .current_folder(directory)
                             .expect("pathbuf should not be nul terminated");
 
@@ -445,7 +445,7 @@ impl<P: LinuxClient + 'static> Platform for LinuxPlatform<P> {
     }
 
     fn can_select_mixed_files_and_dirs(&self) -> bool {
-        // org.freedesktop.portal.FileChooser only supports "pick files" and "pick directories".
+        // org.freedesktop.portal.FileChooser 仅支持“选择文件”和“选择目录”。
         false
     }
 
@@ -460,7 +460,7 @@ impl<P: LinuxClient + 'static> Platform for LinuxPlatform<P> {
                 let _ = new_command("xdg-open")
                     .arg(path)
                     .spawn()
-                    .context("invoking xdg-open")
+                    .context("调用 xdg-open 时出错")
                     .log_err()?
                     .status()
                     .await
@@ -501,7 +501,7 @@ impl<P: LinuxClient + 'static> Platform for LinuxPlatform<P> {
     }
 
     fn app_path(&self) -> Result<PathBuf> {
-        // get the path of the executable of the current process
+        // 获取当前进程可执行文件的路径
         let app_path = env::current_exe()?;
         Ok(app_path)
     }
@@ -522,7 +522,7 @@ impl<P: LinuxClient + 'static> Platform for LinuxPlatform<P> {
 
     fn path_for_auxiliary_executable(&self, _name: &str) -> Result<PathBuf> {
         Err(anyhow::Error::msg(
-            "Platform<LinuxPlatform>::path_for_auxiliary_executable is not implemented yet",
+            "Platform<LinuxPlatform>::path_for_auxiliary_executable 尚未实现",
         ))
     }
 
@@ -566,12 +566,11 @@ impl<P: LinuxClient + 'static> Platform for LinuxPlatform<P> {
                     let attributes = item.attributes().await?;
                     let username = attributes
                         .get("username")
-                        .context("Cannot find username in stored credentials")?;
+                        .context("在存储的凭据中找不到用户名")?;
                     item.unlock().await?;
                     let secret = item.secret().await?;
 
-                    // we lose the zeroizing capabilities at this boundary,
-                    // a current limitation GPUI's credentials api
+                    // 在此边界处我们失去了零化能力，这是 GPUI 凭据 API 的当前限制
                     return Ok(Some((username.to_string(), secret.to_vec())));
                 } else {
                     continue;
@@ -609,7 +608,7 @@ impl<P: LinuxClient + 'static> Platform for LinuxPlatform<P> {
     }
 
     fn register_url_scheme(&self, _: &str) -> Task<anyhow::Result<()>> {
-        Task::ready(Err(anyhow!("register_url_scheme unimplemented")))
+        Task::ready(Err(anyhow!("register_url_scheme 未实现")))
     }
 
     fn write_to_primary(&self, item: ClipboardItem) {
@@ -650,16 +649,16 @@ pub(super) fn open_uri_internal(
                         Ok(mut cmd) => match cmd.status().await {
                             Ok(status) if status.success() => return,
                             Ok(status) => {
-                                log::error!("Command {} exited with status: {}", program, status);
+                                log::error!("命令 {} 退出时状态为: {}", program, status);
                                 xdg_open_failed = true;
                             }
                             Err(e) => {
-                                log::error!("Failed to get status from {}: {}", program, e);
+                                log::error!("从 {} 获取状态失败: {}", program, e);
                                 xdg_open_failed = true;
                             }
                         },
                         Err(e) => {
-                            log::error!("Failed to open with {}: {}", program, e);
+                            log::error!("通过 {} 打开失败: {}", program, e);
                             xdg_open_failed = true;
                         }
                     }
@@ -675,7 +674,7 @@ pub(super) fn open_uri_internal(
                         Ok(()) => {}
                         Err(ashpd::Error::Response(ashpd::desktop::ResponseError::Cancelled)) => {}
                         Err(e) => {
-                            log::error!("Failed to open with dbus: {}", e);
+                            log::error!("通过 dbus 打开失败: {}", e);
                         }
                     }
                 }
@@ -699,7 +698,7 @@ pub(super) fn reveal_path_internal(
                     .await
                 {
                     Ok(_) => return,
-                    Err(e) => log::error!("Failed to open with dbus: {}", e),
+                    Err(e) => log::error!("通过 dbus 打开失败: {}", e),
                 }
                 if path.is_dir() {
                     open::that_detached(path).log_err();
@@ -752,7 +751,7 @@ pub(super) const DEFAULT_CURSOR_ICON_NAME: &str = "left_ptr";
 
 #[cfg(any(feature = "wayland", feature = "x11"))]
 pub(super) fn cursor_style_to_icon_names(style: CursorStyle) -> &'static [&'static str] {
-    // Based on cursor names from chromium:
+    // 基于 Chromium 的光标名称:
     // https://github.com/chromium/chromium/blob/d3069cf9c973dc3627fa75f64085c6a86c8f41bf/ui/base/cursor/cursor_factory.cc#L113
     match style {
         CursorStyle::Arrow => &[DEFAULT_CURSOR_ICON_NAME],
@@ -778,7 +777,7 @@ pub(super) fn cursor_style_to_icon_names(style: CursorStyle) -> &'static [&'stat
         CursorStyle::ContextualMenu => &["context-menu"],
         CursorStyle::None => {
             #[cfg(debug_assertions)]
-            panic!("CursorStyle::None should be handled separately in the client");
+            panic!("CursorStyle::None 应在客户端中单独处理");
             #[cfg(not(debug_assertions))]
             &[DEFAULT_CURSOR_ICON_NAME]
         }
@@ -789,8 +788,8 @@ pub(super) fn cursor_style_to_icon_names(style: CursorStyle) -> &'static [&'stat
 pub(super) fn log_cursor_icon_warning(message: impl std::fmt::Display) {
     if let Ok(xcursor_path) = env::var("XCURSOR_PATH") {
         log::warn!(
-            "{:#}\ncursor icon loading may be failing if XCURSOR_PATH environment variable is invalid. \
-                    XCURSOR_PATH overrides the default icon search. Its current value is '{}'",
+            "{:#}\n光标图标加载可能因 XCURSOR_PATH 环境变量无效而失败。\
+                    XCURSOR_PATH 会覆盖默认的图标搜索路径。其当前值为 '{}'",
             message,
             xcursor_path
         );
@@ -938,9 +937,8 @@ pub(super) fn keystroke_from_xkb(
             {
                 if key.is_ascii_graphic() {
                     key_utf8.to_lowercase()
-                // map ctrl-a to `a`
-                // ctrl-0..9 may emit control codes like ctrl-[, but
-                // we don't want to map them to `[`
+                // 将 ctrl-a 映射为 `a`
+                // ctrl-0..9 可能会产生如 ctrl-[ 这样的控制码，但我们不想将它们映射为 `[`
                 } else if key_utf32 <= 0x1f
                     && !name.chars().next().is_some_and(|c| c.is_ascii_digit())
                 {
@@ -959,15 +957,14 @@ pub(super) fn keystroke_from_xkb(
     };
 
     if modifiers.shift {
-        // we only include the shift for upper-case letters by convention,
-        // so don't include for numbers and symbols, but do include for
-        // tab/enter, etc.
+        // 按惯例，我们仅为大写字母包含 shift 修饰符，
+        // 因此对于数字和符号不包含，但对 tab/enter 等按键则包含。
         if key.chars().count() == 1 && key.to_lowercase() == key.to_uppercase() {
             modifiers.shift = false;
         }
     }
 
-    // Ignore control characters (and DEL) for the purposes of key_char
+    // 对于 key_char，忽略控制字符（以及 DEL）
     let key_char =
         (key_utf32 >= 32 && key_utf32 != 127 && !key_utf8.is_empty()).then_some(key_utf8);
 
@@ -979,7 +976,7 @@ pub(super) fn keystroke_from_xkb(
 }
 
 /**
- * Returns which symbol the dead key represents
+ * 返回死键所代表的符号
  * <https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values#dead_keycodes_for_linux>
  */
 #[cfg(any(feature = "wayland", feature = "x11"))]
@@ -1058,9 +1055,8 @@ pub(super) fn capslock_from_xkb(keymap_state: &State) -> gpui::Capslock {
     gpui::Capslock { on }
 }
 
-/// Resolve a Linux `dev_t` to PCI vendor/device IDs via sysfs, returning a
-/// [`CompositorGpuHint`] that the GPU adapter selection code can use to
-/// prioritize the compositor's rendering device.
+/// 通过 sysfs 将 Linux `dev_t` 解析为 PCI 供应商/设备 ID，返回一个
+/// [`CompositorGpuHint`]，GPU 适配器选择代码可据此优先选择合成器的渲染设备。
 #[cfg(any(feature = "wayland", feature = "x11"))]
 pub(super) fn compositor_gpu_hint_from_dev_t(dev: u64) -> Option<gpui_wgpu::CompositorGpuHint> {
     fn dev_major(dev: u64) -> u32 {
@@ -1087,7 +1083,7 @@ pub(super) fn compositor_gpu_hint_from_dev_t(dev: u64) -> Option<gpui_wgpu::Comp
     let device_id = read_sysfs_hex_id(&device_path)?;
 
     log::info!(
-        "Compositor GPU hint: vendor={:#06x}, device={:#06x} (from dev {major}:{minor})",
+        "合成器 GPU 提示: vendor={:#06x}, device={:#06x} (来自 dev {major}:{minor})",
         vendor_id,
         device_id,
     );
