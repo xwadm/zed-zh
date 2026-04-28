@@ -1,0 +1,408 @@
+#![allow(unused, dead_code)]
+use gpui::{Hsla, Length};
+use std::{
+    cell::LazyCell,
+    sync::{Arc, LazyLock, OnceLock},
+};
+use theme::{Theme, ThemeColors, ThemeRegistry};
+use ui::{
+    IntoElement, RenderOnce, component_prelude::Documented, prelude::*, utils::inner_corner_radius,
+};
+
+/// 主题预览样式枚举
+#[derive(Clone, PartialEq)]
+pub enum ThemePreviewStyle {
+    /// 带边框样式
+    Bordered,
+    /// 无边框样式
+    Borderless,
+    /// 并排对比样式
+    SideBySide(Arc<Theme>),
+}
+
+/// 以缩略图编辑器抽象形式展示主题预览
+#[derive(IntoElement, RegisterComponent, Documented)]
+pub struct ThemePreviewTile {
+    /// 要预览的主题
+    theme: Arc<Theme>,
+    /// 随机种子，用于生成伪代码布局
+    seed: f32,
+    /// 预览展示样式
+    style: ThemePreviewStyle,
+}
+
+/// 子元素圆角（自动计算）
+static CHILD_RADIUS: LazyLock<Pixels> = LazyLock::new(|| {
+    inner_corner_radius(
+        ThemePreviewTile::ROOT_RADIUS,
+        ThemePreviewTile::ROOT_BORDER,
+        ThemePreviewTile::ROOT_PADDING,
+        ThemePreviewTile::CHILD_BORDER,
+    )
+});
+
+impl ThemePreviewTile {
+    /// 默认骨架条高度
+    pub const SKELETON_HEIGHT_DEFAULT: Pixels = px(2.);
+    /// 侧边栏骨架项数量
+    pub const SIDEBAR_SKELETON_ITEM_COUNT: usize = 8;
+    /// 默认侧边栏宽度
+    pub const SIDEBAR_WIDTH_DEFAULT: DefiniteLength = relative(0.25);
+    /// 根容器圆角
+    pub const ROOT_RADIUS: Pixels = px(8.0);
+    /// 根容器边框宽度
+    pub const ROOT_BORDER: Pixels = px(2.0);
+    /// 根容器内边距
+    pub const ROOT_PADDING: Pixels = px(2.0);
+    /// 子容器边框宽度
+    pub const CHILD_BORDER: Pixels = px(1.0);
+
+    /// 创建新的主题预览瓦片
+    pub fn new(theme: Arc<Theme>, seed: f32) -> Self {
+        Self {
+            theme,
+            seed,
+            style: ThemePreviewStyle::Bordered,
+        }
+    }
+
+    /// 设置预览样式
+    pub fn style(mut self, style: ThemePreviewStyle) -> Self {
+        self.style = style;
+        self
+    }
+
+    /// 渲染单个骨架条元素
+    pub fn item_skeleton(w: Length, h: Length, bg: Hsla) -> impl IntoElement {
+        div().w(w).h(h).rounded_full().bg(bg)
+    }
+
+    /// 渲染侧边栏骨架项列表
+    pub fn render_sidebar_skeleton_items(
+        seed: f32,
+        colors: &ThemeColors,
+        skeleton_height: impl Into<Length> + Clone,
+    ) -> [impl IntoElement; Self::SIDEBAR_SKELETON_ITEM_COUNT] {
+        let skeleton_height = skeleton_height.into();
+        std::array::from_fn(|index| {
+            let width = {
+                let value = (seed * 1000.0 + index as f32 * 10.0).sin() * 0.5 + 0.5;
+                0.5 + value * 0.45
+            };
+            Self::item_skeleton(
+                relative(width).into(),
+                skeleton_height,
+                colors.text.alpha(0.45),
+            )
+        })
+    }
+
+    /// 渲染伪代码骨架（模拟编辑器代码）
+    pub fn render_pseudo_code_skeleton(
+        seed: f32,
+        theme: Arc<Theme>,
+        skeleton_height: impl Into<Length>,
+    ) -> impl IntoElement {
+        let colors = theme.colors();
+        let syntax = theme.syntax();
+
+        let keyword_color = syntax.style_for_name("keyword").and_then(|s| s.color);
+        let function_color = syntax.style_for_name("function").and_then(|s| s.color);
+        let string_color = syntax.style_for_name("string").and_then(|s| s.color);
+        let comment_color = syntax.style_for_name("comment").and_then(|s| s.color);
+        let variable_color = syntax.style_for_name("variable").and_then(|s| s.color);
+        let type_color = syntax.style_for_name("type").and_then(|s| s.color);
+        let punctuation_color = syntax.style_for_name("punctuation").and_then(|s| s.color);
+
+        let syntax_colors = [
+            keyword_color,
+            function_color,
+            string_color,
+            variable_color,
+            type_color,
+            punctuation_color,
+            comment_color,
+        ];
+
+        let skeleton_height = skeleton_height.into();
+
+        let line_width = |line_idx: usize, block_idx: usize| -> f32 {
+            let val =
+                (seed * 100.0 + line_idx as f32 * 20.0 + block_idx as f32 * 5.0).sin() * 0.5 + 0.5;
+            0.05 + val * 0.2
+        };
+
+        let indentation = |line_idx: usize| -> f32 {
+            let step = line_idx % 6;
+            if step < 3 {
+                step as f32 * 0.1
+            } else {
+                (5 - step) as f32 * 0.1
+            }
+        };
+
+        let pick_color = |line_idx: usize, block_idx: usize| -> Hsla {
+            let idx = ((seed * 10.0 + line_idx as f32 * 7.0 + block_idx as f32 * 3.0).sin() * 3.5)
+                .abs() as usize
+                % syntax_colors.len();
+            syntax_colors[idx].unwrap_or(colors.text)
+        };
+
+        let line_count = 10;
+
+        let lines = (0..line_count)
+            .map(|line_idx| {
+                let block_count = (((seed * 30.0 + line_idx as f32 * 12.0).sin() * 0.5 + 0.5) * 3.0)
+                    .round() as usize
+                    + 2;
+
+                let indent = indentation(line_idx);
+
+                let blocks = (0..block_count)
+                    .map(|block_idx| {
+                        let width = line_width(line_idx, block_idx);
+                        let color = pick_color(line_idx, block_idx);
+                        Self::item_skeleton(relative(width).into(), skeleton_height, color)
+                    })
+                    .collect::<Vec<_>>();
+
+                h_flex().gap_0p5().ml(relative(indent)).children(blocks)
+            })
+            .collect::<Vec<_>>();
+
+        v_flex().size_full().p_1().gap_1p5().children(lines)
+    }
+
+    /// 渲染侧边栏
+    pub fn render_sidebar(
+        seed: f32,
+        colors: &ThemeColors,
+        width: impl Into<Length> + Clone,
+        skeleton_height: impl Into<Length>,
+    ) -> impl IntoElement {
+        v_flex()
+            .h_full()
+            .w(width)
+            .p_2()
+            .gap_1()
+            .bg(colors.panel_background)
+            .children(Self::render_sidebar_skeleton_items(
+                seed,
+                colors,
+                skeleton_height.into(),
+            ))
+    }
+
+    /// 渲染编辑器内容面板
+    pub fn render_pane(
+        seed: f32,
+        theme: Arc<Theme>,
+        skeleton_height: impl Into<Length>,
+    ) -> impl IntoElement {
+        div()
+            .p_2()
+            .size_full()
+            .overflow_hidden()
+            .bg(theme.colors().editor_background)
+            .child(Self::render_pseudo_code_skeleton(
+                seed,
+                theme,
+                skeleton_height.into(),
+            ))
+    }
+
+    /// 渲染完整编辑器（侧边栏 + 内容区）
+    pub fn render_editor(
+        seed: f32,
+        theme: Arc<Theme>,
+        sidebar_width: impl Into<Length> + Clone,
+        skeleton_height: impl Into<Length> + Clone,
+    ) -> impl IntoElement {
+        div()
+            .flex()
+            .size_full()
+            .bg(theme.colors().background.alpha(1.00))
+            .child(Self::render_sidebar(
+                seed,
+                theme.colors(),
+                sidebar_width,
+                skeleton_height.clone(),
+            ))
+            .child(Self::render_pane(seed, theme, skeleton_height))
+    }
+
+    /// 渲染无边框模式预览
+    fn render_borderless(seed: f32, theme: Arc<Theme>) -> impl IntoElement {
+        Self::render_editor(
+            seed,
+            theme,
+            Self::SIDEBAR_WIDTH_DEFAULT,
+            Self::SKELETON_HEIGHT_DEFAULT,
+        )
+    }
+
+    /// 渲染带边框模式预览
+    fn render_border(seed: f32, theme: Arc<Theme>) -> impl IntoElement {
+        div()
+            .size_full()
+            .p(Self::ROOT_PADDING)
+            .rounded(Self::ROOT_RADIUS)
+            .child(
+                div()
+                    .size_full()
+                    .rounded(*CHILD_RADIUS)
+                    .border(Self::CHILD_BORDER)
+                    .border_color(theme.colors().border)
+                    .child(Self::render_editor(
+                        seed,
+                        theme.clone(),
+                        Self::SIDEBAR_WIDTH_DEFAULT,
+                        Self::SKELETON_HEIGHT_DEFAULT,
+                    )),
+            )
+    }
+
+    /// 渲染双主题并排对比模式
+    fn render_side_by_side(
+        seed: f32,
+        theme: Arc<Theme>,
+        other_theme: Arc<Theme>,
+        border_color: Hsla,
+    ) -> impl IntoElement {
+        let sidebar_width = relative(0.20);
+
+        div()
+            .size_full()
+            .p(Self::ROOT_PADDING)
+            .rounded(Self::ROOT_RADIUS)
+            .child(
+                h_flex()
+                    .size_full()
+                    .relative()
+                    .rounded(*CHILD_RADIUS)
+                    .border(Self::CHILD_BORDER)
+                    .border_color(border_color)
+                    .overflow_hidden()
+                    .child(div().size_full().child(Self::render_editor(
+                        seed,
+                        theme,
+                        sidebar_width,
+                        Self::SKELETON_HEIGHT_DEFAULT,
+                    )))
+                    .child(
+                        div()
+                            .size_full()
+                            .absolute()
+                            .left_1_2()
+                            .bg(other_theme.colors().editor_background)
+                            .child(Self::render_editor(
+                                seed,
+                                other_theme,
+                                sidebar_width,
+                                Self::SKELETON_HEIGHT_DEFAULT,
+                            )),
+                    ),
+            )
+            .into_any_element()
+    }
+}
+
+impl RenderOnce for ThemePreviewTile {
+    /// 渲染主题预览瓦片
+    fn render(self, _window: &mut ui::Window, _cx: &mut ui::App) -> impl IntoElement {
+        match self.style {
+            ThemePreviewStyle::Bordered => {
+                Self::render_border(self.seed, self.theme).into_any_element()
+            }
+            ThemePreviewStyle::Borderless => {
+                Self::render_borderless(self.seed, self.theme).into_any_element()
+            }
+            ThemePreviewStyle::SideBySide(other_theme) => Self::render_side_by_side(
+                self.seed,
+                self.theme,
+                other_theme,
+                _cx.theme().colors().border,
+            )
+            .into_any_element(),
+        }
+    }
+}
+
+impl Component for ThemePreviewTile {
+    fn scope() -> ComponentScope {
+        ComponentScope::Onboarding
+    }
+
+    fn name() -> &'static str {
+        "Theme Preview Tile"
+    }
+
+    fn sort_name() -> &'static str {
+        "Theme Preview Tile"
+    }
+
+    fn description() -> Option<&'static str> {
+        Some(Self::DOCS)
+    }
+
+    /// 组件预览（用于组件库展示）
+    fn preview(_window: &mut Window, cx: &mut App) -> Option<AnyElement> {
+        let theme_registry = ThemeRegistry::global(cx);
+
+        let one_dark = theme_registry.get("One Dark");
+        let one_light = theme_registry.get("One Light");
+        let gruvbox_dark = theme_registry.get("Gruvbox Dark");
+        let gruvbox_light = theme_registry.get("Gruvbox Light");
+
+        let themes_to_preview = vec![
+            one_dark.clone().ok(),
+            one_light.ok(),
+            gruvbox_dark.ok(),
+            gruvbox_light.ok(),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+
+        Some(
+            v_flex()
+                .gap_6()
+                .p_4()
+                .children({
+                    if let Some(one_dark) = one_dark.ok() {
+                        vec![example_group(vec![single_example(
+                            "默认样式",
+                            div()
+                                .w(px(240.))
+                                .h(px(180.))
+                                .child(ThemePreviewTile::new(one_dark, 0.42))
+                                .into_any_element(),
+                        )])]
+                    } else {
+                        vec![]
+                    }
+                })
+                .child(
+                    example_group(vec![single_example(
+                        "默认主题展示",
+                        h_flex()
+                            .gap_4()
+                            .children(
+                                themes_to_preview
+                                    .into_iter()
+                                    .map(|theme| {
+                                        div()
+                                            .w(px(200.))
+                                            .h(px(140.))
+                                            .child(ThemePreviewTile::new(theme, 0.42))
+                                    })
+                                    .collect::<Vec<_>>(),
+                            )
+                            .into_any_element(),
+                    )])
+                    .grow(),
+                )
+                .into_any_element(),
+        )
+    }
+}
